@@ -160,7 +160,13 @@ export function widgetModel(state: AppState, now: Date = new Date()): WidgetMode
   if (plan.kind === 'train' || plan.kind === 'makeup') {
     const session = SESSIONS[plan.key];
     const movements = session.movementIds.length;
-    const short = plan.kind === 'makeup' && plan.missed > 0;
+    /**
+     * The shortfall outranks the first page. On a first session in a week that
+     * already has a blank appointment behind it the app's chapter says ONE PAGE
+     * SHORT, and the home screen cannot answer that with "The first page."
+     * One session still closes both, which is why the action does not change.
+     */
+    const short = plan.missed > 0;
 
     /**
      * The appointment is a time, not a mood. Once it has gone by, saying

@@ -111,6 +111,16 @@ describe('a training day', () => {
     expect(late.model.secondary?.uri).toBe('ledger:///session?kind=full');
   });
 
+  test('a first session in a week already short is called short, not first', () => {
+    const laterContract = sign({ createdAt: '2026-10-26T15:34:00' });
+    const { model } = view([laterContract], '2026-10-28', 12);
+    expect(model.mode).toBe('short');
+    expect(model.headline).toBe('1 page short.');
+    expect(model.detail).toBe('One session closes the gap.');
+    expect(model.action?.label).toBe('START THE SESSION');
+    expect(model.countTone).toBe('rust');
+  });
+
   test('the ten minute version is always the second tap', () => {
     const { model } = view([sign()], '2026-11-02');
     expect(model.secondary?.label).toBe('TEN MINUTES');

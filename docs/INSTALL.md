@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `eb90490c9a3d1cec47503e3aa07b46d0a2dc45e042aef6df0ce06b645781fdf6`). It is
+sha256 `2f3f4537d2fd9b30583f7a6780803b175d0f59caf7c95666ac99f355b53d4849`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -92,7 +92,7 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 134 domain tests and `tsc --noEmit`.
+- 135 domain tests and `tsc --noEmit`.
 - The full UI on the iOS simulator.
 - This exact APK installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.
@@ -204,6 +204,10 @@ Verified on this machine:
   broadcast started the process, WorkManager ran the widget worker, the SQLite
   read happened, and the launcher redrew the card. No WorkManager or R8 crash
   in the crash buffer.
+- The widget prefers the week's shortfall to "The first page.": on the first
+  session of a week that already has a blank appointment behind it, the app's
+  chapter says ONE PAGE SHORT and the home screen now says **1 page short.**
+  with the same one-session action. Two surfaces, one answer.
 - The home table fits on a 411 dp wide Android screen: the movement name column
   now shrinks and wraps, so the load column (`2×15`, the heaviest dumbbell pair)
   ends inside the page margin instead of running off the right edge.
