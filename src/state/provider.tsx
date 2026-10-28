@@ -34,6 +34,8 @@ interface Actions {
     startedAt: Date,
     results: Record<string, SetResult[]>,
   ) => Promise<void>;
+  /** Silence or restore the appointment alarms. Returns the new queue length. */
+  setAlarms: (on: boolean) => Promise<number>;
   refresh: () => Promise<void>;
 }
 
@@ -42,6 +44,13 @@ interface Store {
   ready: boolean;
   error: string | null;
   actions: Actions;
+  /**
+   * Bumped when the notification queue has been rebuilt. The settings screen
+   * reads the queue from the system, and that read has to happen after the
+   * write: on a cold start the first read would otherwise find the queue the
+   * old process left behind, or none at all, and call it zero.
+   */
+  queueVersion: number;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -50,6 +59,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => reduceEvents([]));
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [queueVersion, setQueueVersion] = useState(0);
   const mounted = useRef(true);
 
   const commit = useCallback(async (event: Omit<AppEvent, 'id'>): Promise<AppState> => {
@@ -96,7 +106,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
          * not opening the app would leave the last days silent. Opening the app
          * is the cheapest moment to extend it, and it costs nothing to repeat.
          */
-        if (initial.contract) void syncSchedule(initial).catch(() => 0);
+        if (initial.contract) {
+          void syncSchedule(initial)
+            .catch(() => 0)
+            .then(() => {
+              if (mounted.current) setQueueVersion((value) => value + 1);
+            });
+        }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'The ledger could not be opened.');
         setReady(true);
@@ -159,6 +175,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const next = await commit(makeEvent('repair.cancel', {}));
         void syncSchedule(next).catch(() => undefined);
       },
+      setAlarms: async (on) => {
+        const next = await commit(makeEvent('setting.set', { alarms: on }));
+        return syncSchedule(next).catch(() => 0);
+      },
       finishSession: async (key, kind, startedAt, results) => {
         const event = makeEvent('session.finish', {
           key,
@@ -174,7 +194,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [commit, commitMany, refresh, state.contract],
   );
 
-  const value = useMemo<Store>(() => ({ state, ready, error, actions }), [state, ready, error, actions]);
+  const value = useMemo<Store>(
+    () => ({ state, ready, error, actions, queueVersion }),
+    [state, ready, error, actions, queueVersion],
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

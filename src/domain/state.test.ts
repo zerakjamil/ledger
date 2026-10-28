@@ -54,6 +54,18 @@ describe('event log reducer', () => {
     expect(twice.records[0]!.key).toBe('A');
     expect(twice.prescriptions['split-squat']).toEqual(once.prescriptions['split-squat']);
     expect(twice.consistency.run).toBe(1);
+    const pages = twice.entries.filter((entry) => entry.kind === 'full' || entry.kind === 'floor');
+    expect(pages).toHaveLength(1);
+  });
+
+  test('the alarm switch is a setting, and the last word wins', () => {
+    expect(reduceEvents([]).alarms).toBe(true);
+    const off = ev('setting.set', { alarms: false }, `${day}T06:00:00.000Z`);
+    const on = ev('setting.set', { alarms: true }, `${day}T07:00:00.000Z`);
+    expect(reduceEvents([off]).alarms).toBe(false);
+    expect(reduceEvents([off, on]).alarms).toBe(true);
+    /** The log is ordered by time, not by the order the rows arrived. */
+    expect(reduceEvents([on, off]).alarms).toBe(true);
   });
 
   test('replaying the same log twice gives byte identical state', () => {

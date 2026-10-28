@@ -25,7 +25,7 @@ const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0];
 
 export default function Settings() {
   const router = useRouter();
-  const { state, actions } = useStore();
+  const { state, actions, queueVersion } = useStore();
   const contract = state.contract;
 
   const [barKg, setBarKg] = useState(String(state.equipment.barKg));
@@ -46,7 +46,7 @@ export default function Settings() {
     notificationStatus()
       .then(setPermission)
       .catch(() => setPermission(null));
-  }, [state.eventCount]);
+  }, [state.eventCount, queueVersion]);
 
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -68,6 +68,32 @@ export default function Settings() {
     }
   };
 
+  /**
+   * The queue is a promise, and a promise needs a door. Stopping the alarms
+   * never changes the contract, the ledger or the home screen; it only stops
+   * the phone ringing. Turning them back on rebuilds the same four weeks.
+   */
+  const setAlarms = async (on: boolean) => {
+    const count = await actions.setAlarms(on);
+    setPending(count);
+    setSaved(
+      on
+        ? `${count} ${count === 1 ? 'reminder is' : 'reminders are'} queued again.`
+        : 'The alarms are off. The ledger and the home screen still work.',
+    );
+  };
+
+  const stopAlarms = () => {
+    Alert.alert(
+      'Stop the alarms?',
+      'The contract stays. The ledger and the home screen keep working. The phone stops ringing until you turn them back on.',
+      [
+        { text: 'Keep them', style: 'cancel' },
+        { text: 'Stop them', style: 'destructive', onPress: () => void setAlarms(false) },
+      ],
+    );
+  };
+
   /** One button. The kit and the hour are saved together, and the queue follows. */
   const save = async () => {
     setBusy(true);
@@ -82,9 +108,11 @@ export default function Settings() {
       const count = contract ? await actions.updateSchedule(days, hour, minute) : 0;
       setPending(count);
       setSaved(
-        count === 0
-          ? 'Saved. Nothing is queued until notifications are allowed.'
-          : `Saved. ${count} ${count === 1 ? 'reminder is' : 'reminders are'} queued on this phone.`,
+        !state.alarms
+          ? 'Saved. The alarms are off, so nothing is queued.'
+          : count === 0
+            ? 'Saved. Nothing is queued until notifications are allowed.'
+            : `Saved. ${count} ${count === 1 ? 'reminder is' : 'reminders are'} queued on this phone.`,
       );
     } finally {
       setBusy(false);
@@ -213,6 +241,18 @@ export default function Settings() {
               : ' iOS keeps at most 64 pending, so the queue is rebuilt in a rolling window.'}
           </T>
         )}
+
+        {contract ? (
+          <LinkRow
+            label="The appointment alarms"
+            detail={
+              state.alarms
+                ? 'On. The phone rings on training days.'
+                : 'Off. The phone stays quiet. The ledger does not.'
+            }
+            onPress={() => (state.alarms ? stopAlarms() : void setAlarms(true))}
+          />
+        ) : null}
       </View>
 
       <Rule strong />

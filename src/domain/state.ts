@@ -97,6 +97,11 @@ export interface AppState {
   repair: RepairRecord | null;
   /** Results of the most recent finished session, keyed by movement. */
   lastResults: Record<string, SetResult[]>;
+  /**
+   * Device-level, not contract-level: whether the phone may ring. Turning it
+   * off silences the queue but does not tear up the contract or change a page.
+   */
+  alarms: boolean;
   eventCount: number;
   consistency: Consistency;
 }
@@ -119,6 +124,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
   const skips: SkipRecord[] = [];
   let repair: RepairRecord | null = null;
   let lastResults: Record<string, SetResult[]> = {};
+  let alarms = true;
 
   const ordered = [...events].sort((a, b) => a.at.localeCompare(b.at));
 
@@ -202,13 +208,21 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         if (event.payload.ok === true && !stepDays.includes(event.day)) stepDays.push(event.day);
         break;
       }
+      case 'setting.set': {
+        if (typeof event.payload.alarms === 'boolean') alarms = event.payload.alarms;
+        break;
+      }
       default:
         break;
     }
   }
 
+  /** The event log keeps every write; the ledger keeps one page per day. */
+  const entryDays = new Set<string>();
   const entries: DayEntry[] = ordered.flatMap((event): DayEntry[] => {
     if (event.type === 'session.finish') {
+      if (entryDays.has(event.day)) return [];
+      entryDays.add(event.day);
       return [
         {
           day: event.day,
@@ -241,6 +255,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
     skips,
     repair,
     lastResults,
+    alarms,
     eventCount: ordered.length,
     /** The contract names the target. A two day contract is judged on two. */
     consistency: computeConsistency(entries, today, Math.max(1, contract?.days.length ?? 3)),

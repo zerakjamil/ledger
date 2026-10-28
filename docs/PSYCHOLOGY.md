@@ -51,6 +51,22 @@ the horizon gets its own review, so weeks two, three and four still ask for the
 number. The queue can therefore keep every appointment in the trial without the
 app being opened once, and the first session or skip rebuilds it from the truth.
 
+**The alarm has a door.** A queue the user cannot stop is a queue the user
+uninstalls. Settings carries one row that empties it: *The contract stays. The
+ledger and the home screen keep working. The phone stops ringing until you turn
+them back on.* Turning it off writes one `setting.set` event, so the decision
+outlives the process and a reboot, and the reducer honours it before it plans a
+single alarm (`state.ts`, `services/notifications.ts`). Autonomy is not a
+courtesy here. Reactance is the predictable answer to a reminder nobody chose,
+and the practical version is worse: an Android user who feels nagged revokes
+notification permission wholesale, which kills the anchor, the fallback, the
+morning-after and the review in one tap. A door turns "the app is nagging me"
+into "I chose this today", and a choice is the only thing that makes a four week
+queue credible. It also gives the on state a meaning: an alarm the user can
+silence is consent, and an alarm they cannot is just noise. The widget is not
+behind the door, because the page is not a reminder. It is the ledger, and the
+ledger does not stop existing because the phone is quiet.
+
 ## The page on the home screen
 
 A reminder can be dismissed without a decision. A widget is looked at while the

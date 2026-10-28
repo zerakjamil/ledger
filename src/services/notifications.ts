@@ -38,7 +38,13 @@ export async function notificationStatus(): Promise<'granted' | 'denied' | 'unde
  * and it keeps the 64 slot iOS cap honest.
  */
 export async function syncSchedule(state: AppState): Promise<number> {
+  /**
+   * Cancel first, always. Turning the alarms off has to empty a queue that is
+   * already sitting in the system, and returning early before the cancel would
+   * leave four weeks of reminders ringing after the switch was flipped.
+   */
   await Notifications.cancelAllScheduledNotificationsAsync();
+  if (!state.alarms) return 0;
   const contract = state.contract;
   if (!contract) return 0;
 

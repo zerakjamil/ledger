@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `418a37bc0c66ca33e1bd1a76648968a42df96a75b1977e2122eaac98620bad48`). It is
+sha256 `89cfd6d4d3cab664bc0069bd8d4077746470951a520227625c49c33745798ec3`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -92,7 +92,7 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 137 domain tests and `tsc --noEmit`.
+- 138 domain tests and `tsc --noEmit`.
 - The full UI on the iOS simulator.
 - This exact APK installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.
@@ -103,6 +103,13 @@ Verified on this machine:
   four Sundays. The queue is planned 28 days ahead, so a phone that is never
   opened still gets every appointment in the trial. It is rebuilt from the
   ledger on every open, session and skip.
+- The alarm has a door. **The appointment alarms** in Settings emptied the queue
+  to 0 on the screen and in `dumpsys alarm` (40 RTC_WAKEUP alarms before, 0
+  after), flipped the row to **Off. The phone stays quiet. The ledger does not.**,
+  and left the contract, the ledger and the widget untouched. Turning it back on
+  queued 40 again. With the alarms off, `adb reboot` brought back no alarms at
+  all, and opening the app cold did not rebuild them: the switch is an event in
+  the log, so it outlives the process and the boot.
 - The alarm cannot write a second page. A session link opened after the page was
   already written showed **Already written.** with the next appointment instead
   of the form, and two `session.finish` events for one day leave one record and
