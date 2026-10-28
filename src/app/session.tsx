@@ -10,6 +10,7 @@ import { advance } from '../domain/progression';
 import { FLOOR_SESSION, MOVEMENTS, ROTATION, SESSIONS } from '../domain/program';
 import { nextSession } from '../domain/rotation';
 import type { SessionKey, SetResult } from '../domain/types';
+import { cancelTodaysHelp } from '../services/notifications';
 import { useStore } from '../state/provider';
 import { color, mono, rule, sans, space } from '../theme/tokens';
 import { clockLabel, dayStamp, elapsedLabel, kg, restLabel } from '../ui/format';
@@ -156,6 +157,13 @@ export default function Session() {
   };
 
   const logSet = () => {
+    /**
+     * The first set is the start, not the open. Opening the app is not
+     * training, so the help alarms for today keep ringing until one set is on
+     * the page; after that they would only ring over a session. The
+     * morning-after is not touched, because an abandoned page still owes it.
+     */
+    if (totalSets === 0) void cancelTodaysHelp(todayKey()).catch(() => undefined);
     const next: SetResult[] = [...logged, { reps, loadKg: prescription.loadKg, rir }];
     const all = { ...results, [movementId]: next };
     setResults(all);

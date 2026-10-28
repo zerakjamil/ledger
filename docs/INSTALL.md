@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `89cfd6d4d3cab664bc0069bd8d4077746470951a520227625c49c33745798ec3`). It is
+sha256 `73a7843253afe4b1006e236b2c8331c433d60717bd15a721693ce5bf54f56ac5`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -110,6 +110,11 @@ Verified on this machine:
   queued 40 again. With the alarms off, `adb reboot` brought back no alarms at
   all, and opening the app cold did not rebuild them: the switch is an event in
   the log, so it outlives the process and the boot.
+- The help alarms stop at set 1, not at the open. With 40 reminders queued,
+  logging one set on a cold session dropped the queue to 39, and the only
+  missing alarm was that day's 20:30 fallback. Today's 19:00 anchor, the next
+  morning's 08:00 and every other day stayed. Discarding the session rebuilt all
+  40 on the next open.
 - The alarm cannot write a second page. A session link opened after the page was
   already written showed **Already written.** with the next appointment instead
   of the form, and two `session.finish` events for one day leave one record and

@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { planNotifications } from '../domain/notifications';
+import { helpAlarmIds, planNotifications } from '../domain/notifications';
 import type { AppState } from '../domain/state';
 import { todayKey } from '../domain/consistency';
 import { sessionBrief } from '../domain/brief';
@@ -110,6 +110,25 @@ export async function syncSchedule(state: AppState): Promise<number> {
     }
   }
   return scheduled;
+}
+
+/**
+ * Stops today's help alarms the moment the first set is logged. The queue is
+ * not rebuilt here on purpose: the session has not been written yet, so a
+ * rebuild from state would put the same fallback straight back. Cancelling by
+ * identifier touches only the two alarms that exist for an hour that has not
+ * started.
+ */
+export async function cancelTodaysHelp(day = todayKey()): Promise<number> {
+  const pending = await Notifications.getAllScheduledNotificationsAsync();
+  const targets = helpAlarmIds(
+    pending.map((request) => request.identifier),
+    day,
+  );
+  for (const identifier of targets) {
+    await Notifications.cancelScheduledNotificationAsync(identifier);
+  }
+  return targets.length;
 }
 
 export async function pendingCount(): Promise<number> {

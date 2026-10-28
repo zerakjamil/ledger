@@ -37,6 +37,18 @@ They open the ten minute session itself, with the rotation read at that moment,
 so the weakest hour of the day costs one decision instead of three
 (`notifications.ts`, `session.tsx`).
 
+**The nag stops at set 1, not at the open.** The 20:30 fallback and a booked
+repair alarm exist for an hour that has not started. Logging the first set
+cancels them by identifier (`helpAlarmIds`, `services/notifications.ts`), so the
+phone goes quiet at the exact moment the work begins, and it stays quiet over the
+rest of the session. Opening the screen is not training; a set is. This makes
+the first set the cheapest way to silence the phone, which is the two minute
+rule with a receipt. The morning-after is never cancelled here, because an
+abandoned page still owes its 08:00 answer. The queue is not rebuilt at that
+moment either: the session has not been written, so a rebuild from state would
+put the same fallback straight back. Cancelling by id only touches the two
+alarms that were for a day that had not started.
+
 **The queue is rebuilt from evidence.** Every open, every finished session and
 every written skip cancels the whole queue and rebuilds it from the current
 ledger (`services/notifications.ts`, `provider.tsx`). Nothing is remembered by

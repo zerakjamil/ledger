@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { cancelAfterStart, planNotifications } from './notifications';
+import { helpAlarmIds, planNotifications } from './notifications';
 import type { NotificationPrefs } from './notifications';
 
 const prefs: NotificationPrefs = {
@@ -262,25 +262,27 @@ describe('notification planner', () => {
     expect(specs.some((s) => s.kind === 'repair')).toBe(false);
   });
 
-  test('starting the repair cancels the alarm that would nag afterwards', () => {
-    const specs = planNotifications({
-      now: new Date(2026, 10, 7, 18, 0, 0),
-      prefs,
-      horizonDays: 3,
-      repair: { day: '2026-11-07', hour: 19, minute: 0 },
-    });
-    const repair = specs.find((s) => s.kind === 'repair')!;
-    const remaining = cancelAfterStart(specs, new Date(repair.at.getTime() - 5 * 60_000));
-    expect(remaining.some((s) => s.kind === 'repair')).toBe(false);
+  test("the first set cancels that day's help alarms and nothing else", () => {
+    const day = '2026-11-02';
+    const ids = [
+      `anchor-${day}`,
+      `fallback-${day}`,
+      `debt-${day}`,
+      `repair-${day}`,
+      'fallback-2026-11-03',
+    ];
+    expect(helpAlarmIds(ids, day)).toEqual([`fallback-${day}`, `repair-${day}`]);
   });
 
-  test('starting a session cancels the fallback that would nag afterwards', () => {
+  test('a start in the evening leaves the morning after alone', () => {
     const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 7 });
+    const ids = specs.map((s) => s.id);
     const firstAnchor = specs.find((s) => s.kind === 'anchor')!;
-    const start = new Date(firstAnchor.at.getTime() + 5 * 60_000);
-    const remaining = cancelAfterStart(specs, start);
-    expect(remaining.some((s) => s.kind === 'fallback' && s.id === `fallback-${firstAnchor.id.slice(7)}`)).toBe(false);
-    expect(remaining.some((s) => s.kind === 'anchor' && s.id === firstAnchor.id)).toBe(true);
+    const day = firstAnchor.id.slice('anchor-'.length);
+    const cancelled = helpAlarmIds(ids, day);
+    expect(cancelled).not.toContain(`debt-${day}`);
+    expect(cancelled).not.toContain(`anchor-${day}`);
+    expect(cancelled.every((id) => id.includes(day))).toBe(true);
   });
 });
 

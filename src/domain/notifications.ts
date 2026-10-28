@@ -225,16 +225,16 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
   return dedupe(specs).slice(0, maxPending);
 }
 
-/** Cancels the fallback once a session starts, so the phone goes quiet. */
-export function cancelAfterStart(
-  specs: readonly NotificationSpec[],
-  startedAt: Date,
-): NotificationSpec[] {
-  return specs.filter(
-    (s) =>
-      (s.kind !== 'fallback' && s.kind !== 'repair') ||
-      s.at.getTime() < startedAt.getTime(),
-  );
+/**
+ * The fallback and the repair are help alarms: they exist for an hour that has
+ * not started. Once a set is logged the help has been taken, and a phone that
+ * rings over a session is nagging, not helping. Only that day's two alarms are
+ * named here. The anchor already fired, and the morning-after is deliberately
+ * left alone, because an unfinished page still has to be answered at 08:00.
+ */
+export function helpAlarmIds(ids: readonly string[], day: string): string[] {
+  const help = new Set([`fallback-${day}`, `repair-${day}`]);
+  return ids.filter((id) => help.has(id));
 }
 
 function dedupe(specs: readonly NotificationSpec[]): NotificationSpec[] {
