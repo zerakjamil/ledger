@@ -65,9 +65,14 @@ a skip. Both are pinned by `src/domain/widget.test.ts`.
 
 - The app calls `requestWidgetUpdate` after every commit, after a refresh, and
   when it returns to the foreground. No widget means no-op.
-- The manifest sets `updatePeriodMillis` to one day, not the 30 minute minimum.
-  The widget is a page, not a live dashboard, and background image rendering is
-  the expensive path.
+- The manifest sets `updatePeriodMillis` to one hour. A day was the first
+  choice, on the argument that a page is not a dashboard and image rendering is
+  the expensive path, but a day means the card can say *Tonight, 19:00* the
+  next morning. Every other mechanism in this app exists to keep the home
+  screen truthful, so the card is re-rendered hourly and the cost is bounded:
+  one headless boot an hour, and Android batches the update with the wakeups it
+  was already going to do. The 30 minute minimum was not used because nothing
+  on the card changes that often.
 - The headless task reads SQLite directly. If the read fails, it renders
   `Open the ledger.` rather than showing a number it cannot defend.
 - Deep links are `ledger:///`, `ledger:///session?kind=floor`,

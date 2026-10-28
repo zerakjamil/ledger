@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `2f3f4537d2fd9b30583f7a6780803b175d0f59caf7c95666ac99f355b53d4849`). It is
+sha256 `418a37bc0c66ca33e1bd1a76648968a42df96a75b1977e2122eaac98620bad48`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -45,7 +45,7 @@ number in the log cannot disagree. It names the hour of the next appointment,
 shows how many pages the week has against the contract, and its main label opens
 the session that is actually on offer. After the appointment time it stops
 saying *Tonight* and admits the hour has passed; past the 90 minute fallback the
-ten minute session becomes the primary label. It refreshes itself once a day on
+ten minute session becomes the primary label. It refreshes itself once an hour on
 its own and immediately whenever a page is written.
 
 If a release build crashes on launch with a WorkManager stack trace, the R8 keep
@@ -92,15 +92,25 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 135 domain tests and `tsc --noEmit`.
+- 137 domain tests and `tsc --noEmit`.
 - The full UI on the iOS simulator.
 - This exact APK installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.
-- Ten exact alarms queued on the final check for a Mon/Wed/Fri contract (`window=0`): anchor at
-  19:00 and fallback at 20:30 on each training day, a morning-after alarm at
-  08:00 for each unclosed appointment (including yesterday's, when the app is
-  opened after midnight and before 08:00), and the weekly review on Sunday at
-  18:00.
+- 40 reminders waiting in the system queue for a Mon/Wed/Fri contract (`window=0`):
+  anchor at 19:00 and fallback at 20:30 on each training day, a morning-after
+  alarm at 08:00 for each unclosed appointment (including yesterday's, when the
+  app is opened after midnight and before 08:00), and one review for each of the
+  four Sundays. The queue is planned 28 days ahead, so a phone that is never
+  opened still gets every appointment in the trial. It is rebuilt from the
+  ledger on every open, session and skip.
+- The alarm cannot write a second page. A session link opened after the page was
+  already written showed **Already written.** with the next appointment instead
+  of the form, and two `session.finish` events for one day leave one record and
+  move each prescription once (pinned by `src/domain/state.test.ts`).
+- The widget refreshes hourly, not daily. The generated provider XML and
+  `dumpsys appwidget` both report `updatePeriodMillis=3600000`. A card that can
+  still say *Tonight, 19:00* the next morning is the one lie the rest of the app
+  refuses.
 - The anchor delivered with the app process killed.
 - After `adb reboot`, the queue was restored by the boot receiver without the app
   being opened, and the 19:00 reminder still arrived.
@@ -217,9 +227,9 @@ Verified on this machine:
   the page colour, so the plate has no visible rectangle around it.
 
 Not verified: a physical phone from Xiaomi, Oppo, Vivo, Samsung or Huawei and its
-battery manager; the launcher's own 24 hour refresh (the update period is set but
-the emulator was not left running overnight); aeroplane mode on real hardware;
-and the four weeks. If a launch
+battery manager; the launcher's own hourly refresh (the update period is set and
+the generated XML was checked, but the emulator was not left running for an
+hour); aeroplane mode on real hardware; and the four weeks. If a launch
 fails, the log is the thing to send:
 
 ```

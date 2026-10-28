@@ -199,9 +199,18 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
     }
   }
 
-  const reviewDay = nextWeekdayOnOrAfter(today, prefs.reviewDay);
-  const reviewAt = atLocal(reviewDay, prefs.reviewHour, 0);
-  if (reviewAt.getTime() > now.getTime()) {
+  /**
+   * One review for every week the queue covers, not just the next one. A queue
+   * that is built once and never rebuilt is the normal case for a phone that is
+   * installed and forgotten, and a single review would make the second, third
+   * and fourth Sunday silent.
+   */
+  const weeks = Math.max(1, Math.ceil(horizonDays / 7));
+  for (let week = 0; week < weeks; week += 1) {
+    const reviewDay = nextWeekdayOnOrAfter(addDays(today, week * 7), prefs.reviewDay);
+    if (reviewDay >= addDays(today, horizonDays)) break;
+    const reviewAt = atLocal(reviewDay, prefs.reviewHour, 0);
+    if (reviewAt.getTime() <= now.getTime()) continue;
     specs.push({
       id: `review-${reviewDay}`,
       kind: 'review',

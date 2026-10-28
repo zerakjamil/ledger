@@ -37,6 +37,25 @@ describe('event log reducer', () => {
     expect(once.consistency.run).toBe(1);
   });
 
+  test('a second session on the same day does not move the rotation twice', () => {
+    const first = ev('session.finish', {
+      key: 'A',
+      kind: 'full',
+      results: { 'split-squat': sets(9, 3) },
+    });
+    const second = ev(
+      'session.finish',
+      { key: 'B', kind: 'floor', results: { 'split-squat': sets(9, 3) } },
+      `${day}T21:00:00.000Z`,
+    );
+    const once = reduceEvents([first]);
+    const twice = reduceEvents([first, second]);
+    expect(twice.records).toHaveLength(1);
+    expect(twice.records[0]!.key).toBe('A');
+    expect(twice.prescriptions['split-squat']).toEqual(once.prescriptions['split-squat']);
+    expect(twice.consistency.run).toBe(1);
+  });
+
   test('replaying the same log twice gives byte identical state', () => {
     const events = [
       ev('contract.set', {

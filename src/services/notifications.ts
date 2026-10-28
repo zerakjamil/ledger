@@ -72,6 +72,13 @@ export async function syncSchedule(state: AppState): Promise<number> {
     since: contract.createdAt.slice(0, 10),
     brief: sessionBrief(state, now),
     repair: activeRepair(state, todayKey(now)),
+    /**
+     * Four weeks, not one. The app is meant to be installed and forgotten, so
+     * the queue has to outlive the last time it was opened. Three training days
+     * a week with an anchor, a fallback and a morning-after keeps the count
+     * near forty pending, under the sixty that iOS tolerates.
+     */
+    horizonDays: 28,
   });
 
   let scheduled = 0;

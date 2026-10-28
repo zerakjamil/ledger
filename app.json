@@ -55,7 +55,7 @@
               "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",
               "widgetCategory": "home_screen|keyguard",
-              "updatePeriodMillis": 86400000
+              "updatePeriodMillis": 3600000
             }
           ]
         }

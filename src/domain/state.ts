@@ -106,6 +106,13 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
   let contract: Contract | null = null;
   let prescriptions = seed(equipment);
   const records: SessionRecord[] = [];
+  /**
+   * One page a day. The contract is three pages a week and a page is a day, so
+   * a second session on the same day must not push a second record or move the
+   * rotation twice: that would burn a session the week never got to see. The
+   * event stays in the log either way, so no work is lost if the rule changes.
+   */
+  const sessionDays = new Set<string>();
   const weights: WeighIn[] = [];
   const waists: WaistIn[] = [];
   const stepDays: string[] = [];
@@ -129,6 +136,8 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         break;
       }
       case 'session.finish': {
+        if (sessionDays.has(event.day)) break;
+        sessionDays.add(event.day);
         const key = event.payload.key as SessionKey;
         const kind = event.payload.kind === 'floor' ? 'floor' : 'full';
         records.push({ key, kind, at: event.at, day: event.day });

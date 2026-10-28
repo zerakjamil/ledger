@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { todayKey } from '../domain/consistency';
+import { closedBy, dayPlan } from '../domain/day';
 import { describeLoad } from '../domain/equipment';
 import { advance } from '../domain/progression';
 import { FLOOR_SESSION, MOVEMENTS, ROTATION, SESSIONS } from '../domain/program';
@@ -11,7 +12,7 @@ import { nextSession } from '../domain/rotation';
 import type { SessionKey, SetResult } from '../domain/types';
 import { useStore } from '../state/provider';
 import { color, mono, rule, sans, space } from '../theme/tokens';
-import { elapsedLabel, kg, restLabel } from '../ui/format';
+import { clockLabel, dayStamp, elapsedLabel, kg, restLabel } from '../ui/format';
 import {
   Masthead,
   PrimaryButton,
@@ -71,6 +72,13 @@ export default function Session() {
   const startedAt = useRef(new Date()).current;
   /** The booked repair is written by this session, and the summary should say so. */
   const repairedToday = state.repair !== null && state.repair.day === todayKey(startedAt);
+  /**
+   * The alarm keeps ringing after the page is written, and tapping it used to
+   * open a fresh session. Writing that session would burn two rotation slots on
+   * one day and move every prescription twice. A page is a day, so the second
+   * visit gets the receipt instead of the form.
+   */
+  const alreadyWritten = closedBy(state, todayKey(startedAt)) === 'session';
   const [moveIndex, setMoveIndex] = useState(0);
   const [setIndex, setSetIndex] = useState(0);
   const [results, setResults] = useState<Record<string, SetResult[]>>({});
@@ -238,6 +246,32 @@ export default function Session() {
         <Masthead title="Ledger" />
         <Rule strong />
         <T variant="title">Opening the page</T>
+      </Screen>
+    );
+  }
+
+  if (alreadyWritten) {
+    const plan = dayPlan(state, todayKey(startedAt));
+    return (
+      <Screen>
+        <Masthead title="Ledger" />
+        <Rule strong />
+        <View style={{ gap: space.sm, paddingTop: space.sm }}>
+          <T variant="chapter">TODAY</T>
+          <T variant="display">Already written.</T>
+          <T variant="body">
+            One page a day. The work is in the ledger and the rotation has already moved.
+          </T>
+          <T variant="small" style={{ color: color.inkSoft }}>
+            {plan.nextDay
+              ? `Next page ${dayStamp(plan.nextDay)} at ${clockLabel(
+                  state.contract?.hour ?? 19,
+                  state.contract?.minute ?? 0,
+                )}.`
+              : 'The next page is not set.'}
+          </T>
+          <PrimaryButton label="Back to the ledger" onPress={() => router.replace('/')} />
+        </View>
       </Screen>
     );
   }

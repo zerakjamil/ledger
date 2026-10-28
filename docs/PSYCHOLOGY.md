@@ -42,6 +42,15 @@ every written skip cancels the whole queue and rebuilds it from the current
 ledger (`services/notifications.ts`, `provider.tsx`). Nothing is remembered by
 the notification system that the ledger does not still believe.
 
+**Four weeks of queue, not one.** The planner looks 28 days ahead. A phone that
+is never opened rebuilds nothing, so a seven day horizon would let the app go
+silent at the end of the first week, which is exactly when the habit is most
+likely to be tested. Three appointments a week cost about forty pending alarms,
+under the sixty iOS tolerates; Android has no such limit. Every Sunday inside
+the horizon gets its own review, so weeks two, three and four still ask for the
+number. The queue can therefore keep every appointment in the trial without the
+app being opened once, and the first session or skip rebuilds it from the truth.
+
 ## The page on the home screen
 
 A reminder can be dismissed without a decision. A widget is looked at while the
@@ -88,9 +97,13 @@ flattering the user at the exact moment it should be honest.
 Widgets are image-rendered by the launcher, so the page uses system serif, sans
 and mono families and the same paper palette as the app. The app writes the
 widget whenever the ledger changes and when it returns to the foreground; the
-launcher also refreshes it once a day. No network, no account, no background
-sync. The widget reads the same SQLite file the app writes, or it invites the
-user into the ledger instead of showing a stale number.
+launcher also refreshes it once an hour. Hourly, not daily, because the card's
+whole value is naming the right hour: a page that still says *Tonight, 19:00*
+the next morning is not ambient, it is wrong, and a wrong page teaches the user
+to ignore the page. One render an hour is a bounded cost, and it is smaller than
+the cost of one lie. No network, no account, no background sync. The widget
+reads the same SQLite file the app writes, or it invites the user into the
+ledger instead of showing a stale number.
 
 ## Loss aversion, at the only moment it works
 
@@ -188,6 +201,14 @@ That ordering matters beyond data loss. A reward that arrives only after a
 second confirmation is a form. A reward that arrives at the end of the last set
 is a payment. The same rule governs the widget: it can only ever show a page
 that already exists in SQLite, because it reads the same file.
+
+A page is a day. The 19:00 alarm keeps ringing after the page is written, and
+tapping it used to open a fresh session; finishing that session would have put
+two records on one day and moved the rotation twice, burning a page the week
+never got to see. The reducer now ignores a second session on a day that
+already has one, and the session screen answers a second visit with the
+receipt: *Already written.* This is the difference between a streak that
+inflates and a ledger that counts.
 
 ## Identity, counted rather than declared
 

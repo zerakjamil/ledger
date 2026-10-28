@@ -26,6 +26,15 @@ describe('notification planner', () => {
     expect(anchorDays).toEqual([1, 3, 5]);
   });
 
+  test('a four week queue carries a review for every week', () => {
+    const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 28 });
+    const reviews = specs.filter((s) => s.kind === 'review');
+    expect(reviews).toHaveLength(4);
+    const days = reviews.map((s) => s.id.replace('review-', ''));
+    expect(new Set(days).size).toBe(4);
+    expect(days).toEqual([...days].sort());
+  });
+
   test('nothing is ever scheduled in the past and ids are unique', () => {
     const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 14 });
     for (const spec of specs) {
