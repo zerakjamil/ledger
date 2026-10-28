@@ -42,6 +42,56 @@ every written skip cancels the whole queue and rebuilds it from the current
 ledger (`services/notifications.ts`, `provider.tsx`). Nothing is remembered by
 the notification system that the ledger does not still believe.
 
+## The page on the home screen
+
+A reminder can be dismissed without a decision. A widget is looked at while the
+phone is already in the hand. The Android widget is not a dashboard, and it does
+not show a streak. It answers one question in one sentence: what does today ask,
+and what does the week still owe? (`src/domain/widget.ts`). Because it is
+rendered from the same event log as the app, it cannot congratulate a week the
+ledger calls short, and it cannot offer ten minutes on a day that already has a
+page, because a second page that day would not count.
+
+The widget changes four decisions:
+
+- **The appointment is ambient.** Before the app is opened, the home screen
+  names the next session, the hour, and the session letter. The first tap opens
+  the session, not the home page.
+- **The ten minute version is one tap, on the only day it can save the week.**
+  It appears when `lastChance` is true, not as a permanent escape hatch on every
+  other day.
+- **A plan outranks a debt.** A booked repair replaces "one page short" with
+  "repair booked", because the user has already made the decision. Repeating the
+  debt would bill them twice.
+- **A lost week is said once.** On a day already written, with no appointment
+  left and a shortfall the page cannot repair, the widget says "The week closed
+  short" and offers no tap. A red "one page short" that survives every unlock
+  would be nagging without a way to act.
+
+The count is pages, never days in a row: `2 / 3 PAGES`, `3 / 3 PAGES`. There is
+no flame to protect and no reset to fear. The widget turns moss only when the
+week is actually whole, and rust only when the week is actually behind.
+
+Two sentences have to stay true as the day moves. Before the appointment the
+widget names the hour (`Tonight, 19:00`). After it, saying that would be a claim
+about the future that is already false, so the page admits `The page is still
+blank.` and names the hour that has passed. Once the app's ninety minute
+fallback window is gone, the ten minute version becomes the primary action, not
+the footnote. The weakest hour of the day should cost one decision, and the home
+screen is where that decision is made.
+
+A skip is written down, but it is not a page. The widget says `Skipped.` or
+`Token spent.`, never `Written.`, and it does not re-offer the repair the skip
+page already offered. A ledger that calls a skip a written page would be
+flattering the user at the exact moment it should be honest.
+
+Widgets are image-rendered by the launcher, so the page uses system serif, sans
+and mono families and the same paper palette as the app. The app writes the
+widget whenever the ledger changes and when it returns to the foreground; the
+launcher also refreshes it once a day. No network, no account, no background
+sync. The widget reads the same SQLite file the app writes, or it invites the
+user into the ledger instead of showing a stale number.
+
 ## Loss aversion, at the only moment it works
 
 The stake is written at signing, so it is shown at the point of decision, on the
@@ -124,6 +174,20 @@ makes one session insufficient (`activeRepair`). A reminder for a promise the
 ledger no longer believes is worse than no reminder. Cancelling is possible
 where the promise is shown, behind a confirmation, and the copy says plainly
 that the page stays short.
+
+## The page is written by the work, not by a second tap
+
+The last set writes the page. The summary used to render before the database
+row existed, which meant a phone that died between the final rep and the
+*Close the page* button lost the session, and the summary said "written" while
+the ledger was still empty. Now the write happens at the moment the work ends,
+the summary is a receipt rather than a form, and an empty page cannot be
+written at all: *Finish early* with zero sets refuses and leaves.
+
+That ordering matters beyond data loss. A reward that arrives only after a
+second confirmation is a form. A reward that arrives at the end of the last set
+is a payment. The same rule governs the widget: it can only ever show a page
+that already exists in SQLite, because it reads the same file.
 
 ## Identity, counted rather than declared
 

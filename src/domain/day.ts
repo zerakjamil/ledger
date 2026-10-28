@@ -7,6 +7,9 @@ export type DayPlanKind = 'train' | 'makeup' | 'rest';
 
 export type DayPlanBecause = 'first' | 'appointed' | 'backlog' | 'recovery' | 'closed' | 'none';
 
+/** What closed the day, if anything. A session is a page; a skip is a price. */
+export type DayClosedBy = 'session' | 'skip' | null;
+
 export interface DayPlan {
   kind: DayPlanKind;
   /** The session on offer, or the next one when the page is resting. */
@@ -41,14 +44,7 @@ export function dayPlan(state: AppState, today = todayKey(), now = new Date()): 
    * is a rest day even when the contract called it a training day. Otherwise the
    * app would keep offering a second session until midnight.
    */
-  const closedToday = state.entries.some(
-    (entry) =>
-      entry.day === today &&
-      (entry.kind === 'full' ||
-        entry.kind === 'floor' ||
-        entry.kind === 'skip' ||
-        entry.kind === 'skip-protected'),
-  );
+  const closedToday = closedBy(state, today) !== null;
 
   const appointed = contractDays.includes(weekdayOf(today));
   const missed = shortfallBefore(state, contractDays, today);
@@ -175,4 +171,19 @@ function upcoming(today: string, contractDays: readonly number[]): string {
     if (contractDays.includes(weekdayOf(day))) return day;
   }
   return today;
+}
+
+/**
+ * The strongest thing written on a day. A floor session after a skip makes the
+ * day a page, so a session always outranks a skip; a skip still closes the day,
+ * but the copy must not call it a written page.
+ */
+export function closedBy(state: AppState, day: string): DayClosedBy {
+  let skipped = false;
+  for (const entry of state.entries) {
+    if (entry.day !== day) continue;
+    if (entry.kind === 'full' || entry.kind === 'floor') return 'session';
+    if (entry.kind === 'skip' || entry.kind === 'skip-protected') skipped = true;
+  }
+  return skipped ? 'skip' : null;
 }

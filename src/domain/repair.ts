@@ -57,6 +57,13 @@ export function lastChance(state: AppState, today = todayKey()): boolean {
   const contract = state.contract;
   if (!contract) return false;
   if (contract.days.includes(weekdayOf(today))) return false;
+  /**
+   * A closed day is closed. The ledger keeps one page per day, so a second
+   * session cannot move the count, and the skip page already made the repair
+   * offer before it wrote the skip. Re-offering it here would bill a decision
+   * the user has already made.
+   */
+  if (state.entries.some((entry) => entry.day === today)) return false;
   if (weekShortfall(state, contract.days, today) !== 1) return false;
   return appointedDaysLeft(state, today) === 0;
 }

@@ -7,11 +7,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState as DeviceState } from 'react-native';
 import { appendEvent, loadEvents } from '../db/events';
 import { todayKey } from '../domain/consistency';
 import { reduceEvents, type AppEvent, type AppState, type Contract } from '../domain/state';
 import type { Equipment, SessionKey, SetResult } from '../domain/types';
 import { ensureNotificationPermission, syncSchedule } from '../services/notifications';
+import { syncWidget } from '../widget/sync';
 
 interface Actions {
   signContract: (contract: Omit<Contract, 'createdAt'>) => Promise<void>;
@@ -55,6 +57,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const events = await loadEvents();
     const next = reduceEvents(events);
     if (mounted.current) setState(next);
+    void syncWidget(next);
     return next;
   }, []);
 
@@ -68,12 +71,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const all = await loadEvents();
     const next = reduceEvents(all);
     if (mounted.current) setState(next);
+    void syncWidget(next);
     return next;
   }, []);
 
   const refresh = useCallback(async () => {
     const events = await loadEvents();
-    if (mounted.current) setState(reduceEvents(events));
+    const next = reduceEvents(events);
+    if (mounted.current) setState(next);
+    void syncWidget(next);
   }, []);
 
   useEffect(() => {
@@ -84,6 +90,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const initial = reduceEvents(events);
         if (mounted.current) setState(initial);
         setReady(true);
+        void syncWidget(initial);
         /**
          * The queue is planned forward from the day it is rebuilt, so a week of
          * not opening the app would leave the last days silent. Opening the app
@@ -98,6 +105,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted.current = false;
     };
+  }, [refresh]);
+
+  /**
+   * A widget is only as honest as the last time it was rendered. Every return
+   * to the foreground re-reads the ledger, so a phone left open across midnight
+   * does not keep yesterday's page or last week's count on the home screen.
+   */
+  useEffect(() => {
+    const sub = DeviceState.addEventListener('change', (status) => {
+      if (status === 'active') void refresh();
+    });
+    return () => sub.remove();
   }, [refresh]);
 
   const actions = useMemo<Actions>(

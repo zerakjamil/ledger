@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, View } from 'react-native';
 import { todayKey, weekdayOf } from '../domain/consistency';
-import { dayPlan, weekShortfall } from '../domain/day';
+import { closedBy, dayPlan, weekShortfall } from '../domain/day';
 import { FLOOR_SESSION, MOVEMENTS, SESSIONS } from '../domain/program';
 import { activeRepair, lastChance } from '../domain/repair';
 import { waistTrend, weightTrend } from '../domain/state';
@@ -43,6 +43,7 @@ export default function Home() {
   const now = new Date();
   const today = todayKey(now);
   const plan = dayPlan(state, today, now);
+  const closed = closedBy(state, today);
   const repair = activeRepair(state, today);
   const repairingToday = repair?.day === today;
   const lastChanceDay = !repairingToday && lastChance(state, today);
@@ -159,7 +160,9 @@ export default function Home() {
         {restDay ? (
           <T variant="body" style={{ color: color.inkSoft }}>
             {plan.because === 'closed'
-              ? `Today is written. The next appointment is ${plan.nextDay ? dayStamp(plan.nextDay) : 'not set'}, session ${plan.key}.`
+              ? closed === 'skip'
+                ? `The skip is written. The next appointment is ${plan.nextDay ? dayStamp(plan.nextDay) : 'not set'}, session ${plan.key}.`
+                : `Today is written. The next appointment is ${plan.nextDay ? dayStamp(plan.nextDay) : 'not set'}, session ${plan.key}.`
               : plan.because === 'recovery' && plan.nextDay === today
                 ? `The last session is still being paid for. Twenty hours between sessions is the floor, so the page opens again at ${clockLabel(readyAt.getHours(), readyAt.getMinutes())}.`
                 : `${plan.nextDay ? dayStamp(plan.nextDay) : 'The next appointment'} is when the page opens. The rotation already knows which session it is.`}
@@ -212,7 +215,7 @@ export default function Home() {
                   <T variant="figureSmall" style={styles.index}>
                     {String(index + 1).padStart(2, '0')}
                   </T>
-                  <T variant="body" style={styles.rowLink} numberOfLines={2}>
+                  <T variant="body" style={[styles.rowLink, styles.rowName]} numberOfLines={2}>
                     {breakSafe(movement.name)}
                   </T>
                   <T variant="figure" style={styles.colPlan}>
@@ -260,7 +263,7 @@ export default function Home() {
                   <T variant="figureSmall" style={styles.index}>
                     {String(index + 1).padStart(2, '0')}
                   </T>
-                  <T variant="body" style={styles.rowLink} numberOfLines={2}>
+                  <T variant="body" style={[styles.rowLink, styles.rowName]} numberOfLines={2}>
                     {breakSafe(movement.name)}
                   </T>
                   <T variant="figure" style={styles.colSets}>
@@ -507,9 +510,16 @@ const styles = {
     minHeight: 48,
   },
   index: { width: 18, color: color.inkFaint },
-  colSets: { width: 36, textAlign: 'right' as const },
-  colReps: { width: 46, textAlign: 'right' as const },
-  colLoad: { width: 56, textAlign: 'right' as const },
+  /**
+   * The name column takes the space the numbers do not. Without `flexShrink`,
+   * a long movement name pushes the three figures past the right edge, and the
+   * load column is the first thing to disappear.
+   */
+  rowName: { flex: 1, flexShrink: 1 },
+  colSets: { width: 32, textAlign: 'right' as const },
+  colReps: { width: 42, textAlign: 'right' as const },
+  /** Wide enough for `2×27.5`, the longest load the kit can build. */
+  colLoad: { width: 68, textAlign: 'right' as const },
   colPlan: { width: 84, textAlign: 'right' as const, letterSpacing: 0.6 },
   rowLink: { textDecorationLine: 'underline' as const, textDecorationColor: color.ruleStrong },
   rowPressed: { backgroundColor: color.paperDeep },

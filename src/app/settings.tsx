@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, View } from 'react-native';
+import { requestPinWidget } from 'react-native-android-widget';
 import { barbellLoads } from '../domain/equipment';
 import { useStore } from '../state/provider';
 import { color, mono, space } from '../theme/tokens';
@@ -48,6 +49,24 @@ export default function Settings() {
   }, [state.eventCount]);
 
   const [saved, setSaved] = useState<string | null>(null);
+
+  /**
+   * The launcher owns the home screen, so the app asks it for the pin prompt
+   * rather than pretending it can place a widget. Launchers without the prompt
+   * get the manual route, in the same words the system uses.
+   */
+  const pinWidget = async () => {
+    const manual =
+      'Long-press an empty part of the home screen, choose Widgets, then Ledger.';
+    try {
+      const opened = await requestPinWidget({ widgetName: 'Ledger' });
+      if (!opened) {
+        Alert.alert('Add it from the widget picker', manual);
+      }
+    } catch {
+      Alert.alert('Add it from the widget picker', manual);
+    }
+  };
 
   /** One button. The kit and the hour are saved together, and the queue follows. */
   const save = async () => {
@@ -200,6 +219,13 @@ export default function Settings() {
 
       <View>
         <SectionHead label="THE FILE" />
+        {Platform.OS === 'android' ? (
+          <LinkRow
+            label="Put the week on the home screen"
+            detail="This week's pages and the next appointment, one tap away"
+            onPress={pinWidget}
+          />
+        ) : null}
         <LinkRow
           label="Ledger and export"
           detail={`${state.records.length} ${state.records.length === 1 ? 'session' : 'sessions'}, ${state.eventCount} events, plain JSON`}

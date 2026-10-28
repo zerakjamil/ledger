@@ -111,14 +111,51 @@ export default function Session() {
   const lastTime = state.lastResults[movementId] ?? [];
   const totalSets = movementIds.reduce((sum, id) => sum + (results[id]?.length ?? 0), 0);
 
+  /**
+   * The page is written when the last set is logged, not when a second button is
+   * pressed. A summary that already says "written" while the database is still
+   * empty is the one lie the ledger cannot afford, and a phone that dies between
+   * the last rep and the button would lose the whole session.
+   */
+  const writing = useRef(false);
+  const writePage = async (
+    all: Record<string, SetResult[]>,
+    final: 'full' | 'floor',
+    retry = false,
+  ) => {
+    /** A fast double tap on the last set must not write two pages. */
+    if (writing.current) return;
+    writing.current = true;
+    setSaving(true);
+    try {
+      await actions.finishSession(key, final, startedAt, all);
+      setPhase('summary');
+    } catch {
+      Alert.alert(
+        'The page did not get written.',
+        retry
+          ? 'The sets are still on this screen. Nothing was lost.'
+          : 'The work is still on this screen. Nothing was lost.',
+        [
+          { text: 'Later', style: 'cancel' },
+          { text: 'Try again', onPress: () => void writePage(all, final, true) },
+        ],
+      );
+    } finally {
+      writing.current = false;
+      setSaving(false);
+    }
+  };
+
   const logSet = () => {
     const next: SetResult[] = [...logged, { reps, loadKg: prescription.loadKg, rir }];
-    setResults((current) => ({ ...current, [movementId]: next }));
+    const all = { ...results, [movementId]: next };
+    setResults(all);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 
     if (setIndex + 1 >= setCount) {
       if (moveIndex + 1 >= movementIds.length) {
-        setPhase('summary');
+        void writePage(all, kind);
       } else {
         setMoveIndex(moveIndex + 1);
         setSetIndex(0);
@@ -146,24 +183,30 @@ export default function Session() {
   };
 
   const finishEarly = () => {
+    /**
+     * A page with no sets is not a page. Closing a full session here would put
+     * "Written." on the home screen for work that never happened, so an empty
+     * page leaves instead of being written.
+     */
+    if (totalSets === 0) {
+      Alert.alert(
+        'Nothing is written yet.',
+        'A page needs at least one set. Leaving now writes nothing and the rotation stays put.',
+        [
+          { text: 'Stay', style: 'cancel' },
+          { text: 'Leave', style: 'destructive', onPress: () => router.replace('/') },
+        ],
+      );
+      return;
+    }
     Alert.alert(
       'Close as a floor session?',
       `${totalSets} ${totalSets === 1 ? 'set' : 'sets'} will be written. It counts for the week and no load moves.`,
       [
         { text: 'Keep going', style: 'cancel' },
-        { text: 'Close it', onPress: () => void finish(totalSets > 0 ? 'floor' : 'full') },
+        { text: 'Close it', onPress: () => void writePage(results, 'floor', true) },
       ],
     );
-  };
-
-  const finish = async (final: 'full' | 'floor') => {
-    setSaving(true);
-    try {
-      await actions.finishSession(key, final, startedAt, results);
-      router.replace('/');
-    } catch {
-      setSaving(false);
-    }
   };
 
   const decisions = useMemo(
@@ -216,7 +259,7 @@ export default function Session() {
           <T variant="body" style={{ color: color.inkSoft }}>
             {repairedToday
               ? 'The page you skipped is written. The floor session counts in full.'
-              : `${totalSets} sets on the page. The next prescription is already decided.`}
+              : `${totalSets} ${totalSets === 1 ? 'set' : 'sets'} on the page. The next prescription is already decided.`}
           </T>
         </View>
 
@@ -270,9 +313,8 @@ export default function Session() {
 
         <View style={{ flex: 1 }} />
         <PrimaryButton
-          label={saving ? 'Writing' : 'Close the page'}
-          disabled={saving}
-          onPress={() => finish(kind)}
+          label="Close the page"
+          onPress={() => router.replace('/')}
         />
       </Screen>
     );
@@ -523,8 +565,13 @@ export default function Session() {
           </View>
 
           <PrimaryButton
-            label="Log set"
-            note={`${reps}${unit || ' reps'} · ${describeLoad(movement, prescription.loadKg)} · RIR ${rir}`}
+            label={saving ? 'Writing the page' : 'Log set'}
+            note={
+              saving
+                ? 'The last set is on the page.'
+                : `${reps}${unit || ' reps'} · ${describeLoad(movement, prescription.loadKg)} · RIR ${rir}`
+            }
+            disabled={saving}
             onPress={logSet}
           />
         </View>

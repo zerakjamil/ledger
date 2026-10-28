@@ -38,6 +38,28 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "./plugins/with-widget-rules"
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Ledger",
+              "label": "Ledger",
+              "description": "This week's pages and the next appointment.",
+              "minWidth": "250dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen|keyguard",
+              "updatePeriodMillis": 86400000
+            }
+          ]
+        }
+      ],
       "expo-router",
       "expo-sqlite",
       "expo-font",

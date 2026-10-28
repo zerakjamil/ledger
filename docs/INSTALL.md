@@ -1,7 +1,7 @@
 # Putting it on the phone
 
-The file is `dist/ledger-1.0.0-arm64.apk` (29 MB, arm64, Android 7.0 and up,
-sha256 `c8eb9d93ef8cfd832248ce10d1b19f5dfc56168eaf4297c53ccc846aad1cac5b`). It is
+The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
+sha256 `eb90490c9a3d1cec47503e3aa07b46d0a2dc45e042aef6df0ce06b645781fdf6`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -29,6 +29,29 @@ build is for one phone, not for the store.
    **Battery: unrestricted** and allow **Auto-start** where it exists. Android
    otherwise holds exact alarms until the app is next opened, and a reminder that
    arrives when you open the app is not a reminder.
+
+## The page on the home screen
+
+The widget is the part that keeps working when the app is never opened. Add it
+once:
+
+1. Settings, **Put the week on the home screen**, then **Add**. Android asks the
+   launcher for a free 4x2 slot.
+2. If the launcher does not offer the pin prompt, long-press the home screen,
+   choose **Widgets**, then **Ledger**, and drag the card onto the page.
+
+It reads the same database as the app, so the number on the home screen and the
+number in the log cannot disagree. It names the hour of the next appointment,
+shows how many pages the week has against the contract, and its main label opens
+the session that is actually on offer. After the appointment time it stops
+saying *Tonight* and admits the hour has passed; past the 90 minute fallback the
+ten minute session becomes the primary label. It refreshes itself once a day on
+its own and immediately whenever a page is written.
+
+If a release build crashes on launch with a WorkManager stack trace, the R8 keep
+rules in `plugins/with-widget-rules.js` were not applied: run
+`npx expo prebuild --platform android --no-install` before building. This is the
+upstream issue documented in `docs/WIDGET.md`, not a fault of the phone.
 
 ## The permission list is the promise
 
@@ -69,7 +92,7 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 111 domain tests and `tsc --noEmit`.
+- 134 domain tests and `tsc --noEmit`.
 - The full UI on the iOS simulator.
 - This exact APK installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.
@@ -158,13 +181,41 @@ Verified on this machine:
 - A set logged, the rest clock started, *See the position* opened the form page,
   and the back key returned to the same set with the set count and reps intact.
 - The launcher icon and splash are the paper/Georgia mark, not the Expo template.
+- The last set writes the page. With the app killed immediately after, the
+  `session.finish` row was already in SQLite, and the widget already said
+  **Written.** while the summary's *Close the page* button had never been
+  pressed. Before the fix the page existed only in memory until that button, so
+  a phone that died between the last rep and the summary lost the session.
+- *Finish early* with zero sets refuses to write: *"A page needs at least one
+  set."* A full session with no work would have shown **Written.** on the home
+  screen for nothing.
+- The widget was added from Settings through the launcher's pin prompt
+  (4 x 2, *This week's pages and the next appointment*), and its
+  **START SESSION** and **TEN MINUTES** labels opened the full and floor
+  sessions respectively, through the same deep links as the alarms.
+- The widget follows the ledger: after a floor session the home screen read
+  **2 / 3 PAGES**, **Written.**, *Next page FRI 19:00*; after the third page it
+  turned moss and read **The week is whole.**
+- The widget is honest about the hour: with the clock at Friday 20:10 it read
+  **The page is still blank.** / *The 19:00 appointment has passed.*, and at
+  20:45 the ten minute session became the primary label.
+- A skip reads **Skipped.** in rust with the next page named, never *Written.*
+- The headless path works with the app force-stopped: an `APPWIDGET_UPDATE`
+  broadcast started the process, WorkManager ran the widget worker, the SQLite
+  read happened, and the launcher redrew the card. No WorkManager or R8 crash
+  in the crash buffer.
+- The home table fits on a 411 dp wide Android screen: the movement name column
+  now shrinks and wraps, so the load column (`2×15`, the heaviest dumbbell pair)
+  ends inside the page margin instead of running off the right edge.
 - All 11 demonstration loops are inside the APK (confirmed by unzipping it) and
   animate on the form page. The app holds no network permission, so there is no
   route by which they could have arrived except the bundle. Their background is
   the page colour, so the plate has no visible rectangle around it.
 
 Not verified: a physical phone from Xiaomi, Oppo, Vivo, Samsung or Huawei and its
-battery manager; aeroplane mode on real hardware; and the four weeks. If a launch
+battery manager; the launcher's own 24 hour refresh (the update period is set but
+the emulator was not left running overnight); aeroplane mode on real hardware;
+and the four weeks. If a launch
 fails, the log is the thing to send:
 
 ```
