@@ -1,7 +1,8 @@
 import { describeLoad } from './equipment';
-import { MOVEMENTS, SESSIONS } from './program';
+import { movementById } from './library';
+import { SESSIONS } from './program';
 import { nextSession } from './rotation';
-import type { AppState } from './state';
+import { prescriptionFor, slotTarget, type AppState } from './state';
 import type { SessionKey } from './types';
 
 /**
@@ -24,9 +25,10 @@ export function sessionBrief(
   const first = SESSIONS[key].movementIds[0];
   if (!first) return null;
 
-  const movement = MOVEMENTS[first];
-  const prescription = state.prescriptions[first]?.prescription;
-  if (!movement || !prescription) return null;
+  const id = slotTarget(state, first);
+  const movement = movementById(id);
+  if (!movement) return null;
+  const prescription = prescriptionFor(state, movement);
 
   const unit = movement.unit === 'seconds' ? 's' : '';
   const load = describeLoad(movement, prescription.loadKg);

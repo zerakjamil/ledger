@@ -1,7 +1,9 @@
 import type { ImageSourcePropType } from 'react-native';
+import { catalogPlate } from '../data/catalog-art';
 
 /**
- * Demonstration loops for the eleven movements in the plan.
+ * Demonstration loops for the eleven movements in the plan, and the fallback
+ * into the shelf for every movement that took a slot from the catalog.
  *
  * Source: exercises-dataset (github.com/hasaneyldrm/exercises-dataset), whose
  * media is © Gym visual. That is a personal-use set, not a redistributable one:
@@ -40,7 +42,12 @@ const DEMO_NOTES: Record<string, string> = {
 };
 
 export function plateFor(id: string): ImageSourcePropType | null {
-  return PLATES[id] ?? null;
+  /**
+   * Program loops keep their hand-tuned 450 px files. A shelf movement falls
+   * through to the generated 180 px loop. The catalog table is keyed by
+   * `cat-<dataset id>` so a raw dataset id can never collide with a slug.
+   */
+  return PLATES[id] ?? catalogPlate(`cat-${id}`);
 }
 
 export function demoNote(id: string): string | null {

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
+import { CATALOG } from '../domain/catalog';
 import { barbellLoads } from '../domain/equipment';
 import { parseInputNumber } from '../domain/number';
 import { useStore } from '../state/provider';
@@ -269,6 +270,11 @@ export default function Settings() {
             onPress={pinWidget}
           />
         ) : null}
+        <LinkRow
+          label="Movement shelf"
+          detail={`${CATALOG.length} movements the dumbbells, bar and bench can load`}
+          onPress={() => router.push('/movements')}
+        />
         <LinkRow
           label="Ledger and export"
           detail={`${state.records.length} ${state.records.length === 1 ? 'session' : 'sessions'}, ${state.eventCount} events, plain JSON`}

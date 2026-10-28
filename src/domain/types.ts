@@ -1,4 +1,14 @@
-export type Pattern = 'squat' | 'hinge' | 'hpush' | 'hpull' | 'vpush' | 'vpull' | 'carry' | 'core';
+export type Pattern =
+  | 'squat'
+  | 'hinge'
+  | 'hpush'
+  | 'hpull'
+  | 'vpush'
+  | 'vpull'
+  | 'carry'
+  | 'core'
+  /** A movement from the shelf that does not take one of the eleven slots. */
+  | 'other';
 
 export type Loading =
   { kind: 'barbell' } | { kind: 'dumbbell'; hands: 1 | 2 } | { kind: 'bodyweight' };

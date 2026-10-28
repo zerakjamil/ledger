@@ -11,7 +11,7 @@ Eleven movements, one looping demonstration each, bundled in the APK:
 | Size | 450 × 450, twelve frames, 24-colour duotone |
 | Colour | `#3A332B` ink on `#F6F2E9` paper, the exact page colour |
 | Seen on | the form page (`/form/[id]`), reached by tapping a movement on the home page or *See the position* in a session |
-| Attribution | the foot of the form page, and the bottom of Settings |
+| Attribution | the foot of the form page and the shelf, and the bottom of Settings |
 
 The duotone is doing real work here. The source loops are 3D renders on a white
 studio background. Mapped to the two page tones, that white becomes
@@ -35,7 +35,7 @@ and the repository's `NOTICE.md` says cloning it grants no licence to the media.
 This build bundles them because it is a personal app on one phone that will never
 be distributed. That is the whole of the permission being relied on here.
 
-**If this app ever leaves that phone, these eleven files must be replaced first.**
+**If this app ever leaves that phone, these files must be replaced first.**
 Either buy the set at [gymvisual.com](https://gymvisual.com/) or swap in the
 Unlicense stills from `github.com/yuhonas/free-exercise-db`, which is what this
 app shipped before the loops and which `git log` still has.
@@ -58,22 +58,50 @@ Where the demo is a neighbouring variation, the form page says so in one line
 (`src/ui/movementArt.ts`, `DEMO_NOTES`). A loop that quietly teaches the wrong
 setup is worse than no loop.
 
-## Why the 1,324-movement catalog stays out
+## The movement shelf (651)
 
-The same repository is MIT for the code, the record structure and the
-instruction text; the media is carved out as above. The text is the only part
-that could be taken without a licence, and it is weaker than what the form page
-already says. Its front squat, for example, instructs "pushing your hips back"
-and "making sure your knees do not go past your toes": the first is a back
-squat hinge, and the second is a warning a front squat cannot obey. The three
-cues here say "sit down between the feet" and "knees track over the toes",
-which is the movement.
+The same repository supplies the shelf: every movement the room can load, with
+search, a still in the list and one loop on the detail page.
 
-Breadth is the other reason. The app's mechanism is three movements a day,
-repeated for weeks; 1,324 choices with a search field would turn one decision
-into a browse. The dataset is a quarry for a later block, not a runtime
-dependency. `index.html` in the same repository is a good offline way to pick
-from it when that block is designed.
+| Where | |
+|---|---|
+| Data | `src/data/catalog.json`, 651 records, 406 KB |
+| Art | `assets/catalog/<dataset id>.gif` and `<dataset id>-still.png`, 25.3 MB |
+| Requires | `src/data/catalog-art.ts`, generated |
+| Build | `DATASET_DIR=../exercises-dataset node scripts/build-catalog.mjs` |
+| Seen on | `/movements` and `/movements/[id]` |
+
+The filter keeps dumbbells, barbell, bodyweight and weighted work. It drops
+machines, cables, pull-up and chin-up bars, rings, stability balls, BOSU, arm
+blasters, suspension and duplicate names. 651 remain.
+
+The list renders the first-frame PNG, not the GIF. Running 651 loops at once
+turns a scroll into a slideshow; the detail page runs exactly one.
+
+The still carries its own basename because Android flattens `res/drawable`
+names and drops the extension: `1760.gif` and `1760.png` become the same
+resource and the merger fails the build. The release APK is 61 MB, up from
+33.6 MB, almost all of it this art.
+
+`src/domain/catalog.ts` turns a record into the engine's `Movement`:
+
+- equipment becomes loading; one dumbbell is one hand, weighted bodyweight stays
+  bodyweight
+- the name decides pattern, unit and rep range: carries and planks are held,
+  push-ups start at 6, isolation work at 10, compounds at 8
+- the first three dataset steps become the cues
+- `needsRack` is an exact list of 20 barbell bench press and back squat variants.
+  They are readable on the shelf but cannot take a slot, because the room has no
+  rack.
+
+The dataset's instruction text is still weaker than the hand-written cues, so it
+is shown as numbered steps, not as coaching. The eleven program movements keep
+their own cues.
+
+A slot stores the dataset id of whatever replaced it (`state.slots`). The
+original prescription is never overwritten, so putting the original back costs
+nothing. Every screen resolves through `slotTarget` and `movementById`; reading
+`SESSIONS[key].movementIds` directly would show the old name after a swap.
 
 ## The repositories that were rejected, and why
 

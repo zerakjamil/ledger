@@ -6,10 +6,12 @@ import {
   type DayEntry,
 } from './consistency';
 import { HOME_KIT } from './equipment';
+import { movementById, needsRack, PROGRAM_SLOT_IDS } from './library';
 import { advance } from './progression';
 import { MOVEMENTS, initialPrescription } from './program';
 import type {
   Equipment,
+  Movement,
   Prescription,
   ProgressionReason,
   SessionKey,
@@ -27,7 +29,8 @@ export type EventType =
   | 'weigh'
   | 'waist'
   | 'steps'
-  | 'setting.set';
+  | 'setting.set'
+  | 'slot.set';
 
 export interface AppEvent {
   id?: number;
@@ -87,6 +90,12 @@ export interface AppState {
   contract: Contract | null;
   equipment: Equipment;
   prescriptions: Record<string, PrescriptionState>;
+  /**
+   * Swapped slots, keyed by the program movement the slot belongs to. A slot
+   * that is not in here is holding its original movement. The original's
+   * prescription is never overwritten, so putting it back is free.
+   */
+  slots: Record<string, string>;
   records: SessionRecord[];
   entries: DayEntry[];
   weights: WeighIn[];
@@ -110,6 +119,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
   let equipment: Equipment = HOME_KIT;
   let contract: Contract | null = null;
   let prescriptions = seed(equipment);
+  const slots: Record<string, string> = {};
   const records: SessionRecord[] = [];
   /**
    * One page a day. The contract is three pages a week and a page is a day, so
@@ -141,6 +151,32 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         contract = event.payload as unknown as Contract;
         break;
       }
+      case 'slot.set': {
+        const slot = String(event.payload.slot ?? '');
+        const movementId = String(event.payload.movementId ?? '');
+        if (!PROGRAM_SLOT_IDS.has(slot)) break;
+        const movement = movementById(movementId);
+        /**
+         * The reducer enforces the rack rule, not just the shelf screen: a
+         * movement the room cannot unrack must not become a page because a
+         * future caller forgot to ask.
+         */
+        if (!movement || needsRack(movement.id)) break;
+        slots[slot] = movement.id;
+        /**
+         * A shelf movement has no seeded prescription. It gets the same
+         * conservative start a program movement gets, using the equipment in
+         * force on the day it was chosen.
+         */
+        if (!prescriptions[movement.id]) {
+          prescriptions[movement.id] = {
+            prescription: initialPrescription(movement, equipment),
+            stalls: 0,
+            lastReason: null,
+          };
+        }
+        break;
+      }
       case 'session.finish': {
         if (sessionDays.has(event.day)) break;
         sessionDays.add(event.day);
@@ -150,7 +186,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         const results = (event.payload.results ?? {}) as Record<string, SetResult[]>;
         lastResults = results;
         for (const [movementId, sets] of Object.entries(results)) {
-          const movement = MOVEMENTS[movementId];
+          const movement = movementById(movementId);
           const current = prescriptions[movementId];
           if (!movement || !current || !Array.isArray(sets)) continue;
           const out = advance(
@@ -247,6 +283,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
     contract,
     equipment,
     prescriptions,
+    slots,
     records,
     entries,
     weights,
@@ -260,6 +297,20 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
     /** The contract names the target. A two day contract is judged on two. */
     consistency: computeConsistency(entries, today, Math.max(1, contract?.days.length ?? 3)),
   };
+}
+
+/**
+ * Which movement a slot is actually holding. Every screen goes through this:
+ * reading `SESSIONS[key].movementIds` directly would show the original name
+ * after a swap while the engine trained the replacement.
+ */
+export function slotTarget(state: Pick<AppState, 'slots'>, slotId: string): string {
+  return state.slots[slotId] ?? slotId;
+}
+
+/** A display prescription, even if a slot was written before the movement existed. */
+export function prescriptionFor(state: AppState, movement: Movement): Prescription {
+  return state.prescriptions[movement.id]?.prescription ?? initialPrescription(movement, state.equipment);
 }
 
 function seed(equipment: Equipment): Record<string, PrescriptionState> {

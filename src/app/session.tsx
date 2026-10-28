@@ -6,9 +6,11 @@ import { Alert, Pressable, ScrollView, Text, useWindowDimensions, View } from 'r
 import { todayKey } from '../domain/consistency';
 import { closedBy, dayPlan } from '../domain/day';
 import { describeLoad } from '../domain/equipment';
+import { movementById } from '../domain/library';
 import { advance } from '../domain/progression';
-import { FLOOR_SESSION, MOVEMENTS, ROTATION, SESSIONS } from '../domain/program';
+import { FLOOR_SESSION, ROTATION, SESSIONS } from '../domain/program';
 import { nextSession } from '../domain/rotation';
+import { prescriptionFor, slotTarget } from '../domain/state';
 import type { SessionKey, SetResult } from '../domain/types';
 import { cancelTodaysHelp } from '../services/notifications';
 import { useStore } from '../state/provider';
@@ -60,7 +62,12 @@ export default function Session() {
   ) as SessionKey;
   const kind = params.kind === 'floor' ? 'floor' : 'full';
   const session = SESSIONS[key];
-  const movementIds = kind === 'floor' ? FLOOR_SESSION : session.movementIds;
+  const slotIds = kind === 'floor' ? FLOOR_SESSION : session.movementIds;
+  /** One array for the whole page: the slot it came from and the movement it holds. */
+  const movementIds = useMemo(
+    () => slotIds.map((id) => slotTarget(state, id)),
+    [slotIds, state.slots],
+  );
 
   /**
    * A 640 dp Android phone cannot hold the table, the stepper and the RIR row
@@ -94,8 +101,8 @@ export default function Session() {
   }, []);
 
   const movementId = movementIds[moveIndex] ?? movementIds[0]!;
-  const movement = MOVEMENTS[movementId]!;
-  const prescription = state.prescriptions[movementId]!.prescription;
+  const movement = movementById(movementId)!;
+  const prescription = prescriptionFor(state, movement);
   const setCount = kind === 'floor' ? Math.min(2, prescription.sets) : prescription.sets;
   const [reps, setReps] = useState(prescription.target);
   const [rir, setRir] = useState(2);
@@ -231,7 +238,7 @@ export default function Session() {
         .map((id) => {
           const sets = results[id] ?? [];
           if (sets.length === 0) return null;
-          const definition = MOVEMENTS[id]!;
+          const definition = movementById(id)!;
           const previous = state.prescriptions[id]!;
           const out = advance(
             {
@@ -388,7 +395,12 @@ export default function Session() {
           accessibilityRole="link"
           accessibilityLabel={`How to do ${movement.name}`}
           hitSlop={10}
-          onPress={() => router.push({ pathname: '/form/[id]', params: { id: movement.id } })}
+          onPress={() =>
+            router.push({
+              pathname: '/form/[id]',
+              params: { id: movement.id, slot: slotIds[moveIndex], from: 'session' },
+            })
+          }
           style={{ alignSelf: 'flex-start' }}
         >
           <T variant="micro" style={{ textDecorationLine: 'underline', color: color.inkSoft }}>

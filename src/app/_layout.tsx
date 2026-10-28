@@ -61,6 +61,8 @@ export default function RootLayout() {
           <Stack.Screen name="session" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
           <Stack.Screen name="skip" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="form/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="movements" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="movements/[id]" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="review" />
           <Stack.Screen name="log" />
           <Stack.Screen name="settings" />

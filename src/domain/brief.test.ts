@@ -42,4 +42,17 @@ describe('the lock screen carries the page', () => {
     const state = reduceEvents([signed, finish('2026-10-23', 'A')]);
     expect(sessionBrief(state, sundayNoon)!.key).toBe('B');
   });
+
+  test('a swapped slot names the movement that replaced it', () => {
+    const swap: AppEvent = {
+      type: 'slot.set',
+      at: '2026-10-01T18:30:00.000Z',
+      day: '2026-10-01',
+      payload: { slot: 'split-squat', movementId: '1760' },
+    };
+    const brief = sessionBrief(reduceEvents([signed, swap]), sundayNoon);
+    expect(brief).not.toBeNull();
+    expect(brief!.text).toContain('Dumbbell goblet squat');
+    expect(brief!.text).not.toContain('Rear-foot-elevated split squat');
+  });
 });

@@ -34,6 +34,8 @@ interface Actions {
     startedAt: Date,
     results: Record<string, SetResult[]>,
   ) => Promise<void>;
+  /** Put a shelf movement in a program slot, or the original back. */
+  setSlot: (slot: string, movementId: string) => Promise<void>;
   /** Silence or restore the appointment alarms. Returns the new queue length. */
   setAlarms: (on: boolean) => Promise<number>;
   refresh: () => Promise<void>;
@@ -173,6 +175,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
       cancelRepair: async () => {
         const next = await commit(makeEvent('repair.cancel', {}));
+        void syncSchedule(next).catch(() => undefined);
+      },
+      setSlot: async (slot, movementId) => {
+        const next = await commit(makeEvent('slot.set', { slot, movementId }));
+        /** The lock-screen brief names the first movement, so it is now stale. */
         void syncSchedule(next).catch(() => undefined);
       },
       setAlarms: async (on) => {

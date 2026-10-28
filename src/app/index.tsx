@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { Alert, Pressable, View } from 'react-native';
 import { todayKey, weekdayOf } from '../domain/consistency';
 import { closedBy, dayPlan, weekShortfall } from '../domain/day';
-import { FLOOR_SESSION, MOVEMENTS, SESSIONS } from '../domain/program';
+import { movementById } from '../domain/library';
+import { FLOOR_SESSION, SESSIONS } from '../domain/program';
 import { activeRepair, lastChance } from '../domain/repair';
-import { waistTrend, weightTrend } from '../domain/state';
+import { prescriptionFor, slotTarget, waistTrend, weightTrend } from '../domain/state';
 import { weekView } from '../domain/week';
 import { useStore } from '../state/provider';
 import { color, space } from '../theme/tokens';
@@ -50,10 +51,11 @@ export default function Home() {
   /** The last day the week can still be saved puts the floor session first. */
   const floorFirst = repairingToday || lastChanceDay;
   const session = SESSIONS[plan.key];
-  const movementIds = repairingToday ? FLOOR_SESSION : session.movementIds;
-  const movements = movementIds.map((id) => MOVEMENTS[id]!);
-  const totalSets = movementIds.reduce((sum, id) => {
-    const sets = state.prescriptions[id]!.prescription.sets;
+  /** The slot ids are the program's; the movements are whatever each slot holds. */
+  const slotIds = repairingToday ? FLOOR_SESSION : session.movementIds;
+  const movements = slotIds.map((id) => movementById(slotTarget(state, id))!);
+  const totalSets = movements.reduce((sum, movement) => {
+    const sets = prescriptionFor(state, movement).sets;
     return sum + (repairingToday ? Math.min(2, sets) : sets);
   }, 0);
   const consistency = state.consistency;
@@ -185,7 +187,7 @@ export default function Home() {
                 : `${plan.missed === 1 ? 'One page' : `${plan.missed} pages`} short this week. ${plan.missed === 1 ? 'One session closes the gap.' : 'Start with one now.'}`
               : rewardText
                 ? `Set 1 unlocks “${rewardText}”`
-                : `${movementIds.length} movements · ${totalSets} sets`}
+                : `${movements.length} movements · ${totalSets} sets`}
           </T>
         )}
       </View>
@@ -202,13 +204,18 @@ export default function Home() {
           </View>
           <Rule />
           {movements.map((movement, index) => {
-            const prescription = state.prescriptions[movement.id]!.prescription;
+            const prescription = prescriptionFor(state, movement);
             return (
               <Pressable
                 key={movement.id}
                 accessibilityRole="link"
                 accessibilityLabel={`${movement.name}. Opens the form page.`}
-                onPress={() => router.push({ pathname: '/form/[id]', params: { id: movement.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/form/[id]',
+                    params: { id: movement.id, slot: slotIds[index] },
+                  })
+                }
                 style={({ pressed }) => [pressed && styles.rowPressed]}
               >
                 <View style={styles.line}>
@@ -250,13 +257,18 @@ export default function Home() {
           </View>
           <Rule />
           {movements.map((movement, index) => {
-            const prescription = state.prescriptions[movement.id]!.prescription;
+            const prescription = prescriptionFor(state, movement);
             return (
               <Pressable
                 key={movement.id}
                 accessibilityRole="link"
                 accessibilityLabel={`${movement.name}. Opens the form page.`}
-                onPress={() => router.push({ pathname: '/form/[id]', params: { id: movement.id } })}
+                onPress={() =>
+                  router.push({
+                    pathname: '/form/[id]',
+                    params: { id: movement.id, slot: slotIds[index] },
+                  })
+                }
                 style={({ pressed }) => [pressed && styles.rowPressed]}
               >
                 <View style={styles.line}>
