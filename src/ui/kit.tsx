@@ -237,6 +237,7 @@ export function Field({
   right,
   multiline,
   error,
+  below,
   ...props
 }: TextInputProps & {
   label: string;
@@ -245,6 +246,8 @@ export function Field({
   right?: string;
   /** A filled field that cannot be used says why, under the line it is on. */
   error?: string | null;
+  /** A scale or diagram that belongs to this number, not to the prose under it. */
+  below?: React.ReactNode;
 }) {
   return (
     <View style={{ gap: space.sm }}>
@@ -264,6 +267,7 @@ export function Field({
         />
         {suffix ? <T variant="figureSmall">{suffix}</T> : null}
       </View>
+      {below}
       {error ? (
         <T variant="small" style={{ color: color.rust }}>
           {error}

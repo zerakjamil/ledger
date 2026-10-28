@@ -9,6 +9,7 @@ import { waistTrend, weightTrend } from '../domain/state';
 import { useStore } from '../state/provider';
 import { color, space } from '../theme/tokens';
 import { oneDecimal, shortDay, signed } from '../ui/format';
+import { MeasureScale } from '../ui/measure-scale';
 import {
   Choice,
   Field,
@@ -31,6 +32,8 @@ export default function Review() {
 
   const [weightText, setWeightText] = useState('');
   const [waistText, setWaistText] = useState('');
+  const weightReading = parseInputNumber(weightText);
+  const waistReading = parseInputNumber(waistText);
   /**
    * The question is about the week, not about today. Asking "kept?" and then
    * looking up a single calendar day means it always opens unanswered on the
@@ -135,6 +138,7 @@ export default function Review() {
             ? `Seven day average ${oneDecimal(weight.latest ?? 0)} kg, ${signed(weight.slopePerWeek)} kg per week.`
             : 'One reading is water. Seven is a trend.'
         }
+        below={<MeasureScale measure="weight" value={weightReading} />}
       />
 
       <Field
@@ -150,6 +154,7 @@ export default function Review() {
             ? `First reading ${oneDecimal((waist.latest ?? 0) - waist.change)} cm, now ${oneDecimal(waist.latest ?? 0)} cm.`
             : 'Three readings, same spot, breathe out, take the middle one.'
         }
+        below={<MeasureScale measure="waist" value={waistReading} />}
       />
 
       <View style={{ gap: space.sm }}>

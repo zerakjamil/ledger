@@ -6,6 +6,7 @@ import { measureComplaint, measureIssue, type Measure } from '../domain/measure'
 import { parseInputNumber } from '../domain/number';
 import { useStore } from '../state/provider';
 import { color, mono, sans, space } from '../theme/tokens';
+import { MeasureScale } from '../ui/measure-scale';
 import {
   Field,
   Masthead,
@@ -46,6 +47,8 @@ export default function Onboarding() {
 
   const waistIssue = measureIssue('waist', waist);
   const weightIssue = measureIssue('weight', weight);
+  const waistReading = parseInputNumber(waist);
+  const weightReading = parseInputNumber(weight);
 
   /** An old complaint has no business surviving the edit that answers it. */
   useEffect(() => {
@@ -138,6 +141,7 @@ export default function Onboarding() {
           suffix="cm"
           error={attempted || focused !== 'waist' ? waistIssue : null}
           hint="Three readings, same spot, breathe out. Put the middle one in."
+          below={<MeasureScale measure="waist" value={waistReading} />}
         />
         <Field
           label="BODYWEIGHT"
@@ -149,6 +153,7 @@ export default function Onboarding() {
           suffix="kg"
           error={attempted || focused !== 'weight' ? weightIssue : null}
           hint="Morning, after the bathroom, before food. You will log it daily from now on."
+          below={<MeasureScale measure="weight" value={weightReading} />}
         />
       </Block>
 

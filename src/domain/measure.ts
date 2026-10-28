@@ -17,6 +17,26 @@ export function inMeasureRange(measure: Measure, value: number): boolean {
 }
 
 /**
+ * Where a reading falls on the printed tape: 0 at the floor, 1 at the ceiling.
+ * Clamped, because a needle that can leave the paper is a drawing error, not
+ * information. `tapeOverflow` carries the part the clamp throws away.
+ */
+export function tapePosition(measure: Measure, value: number): number {
+  const { floor, ceiling } = MEASURE_RANGE[measure];
+  const span = ceiling - floor;
+  if (span <= 0) return 0;
+  return Math.min(1, Math.max(0, (value - floor) / span));
+}
+
+/** Which end of the tape the reading ran off, if it did. */
+export function tapeOverflow(measure: Measure, value: number): 'low' | 'high' | null {
+  const { floor, ceiling } = MEASURE_RANGE[measure];
+  if (value < floor) return 'low';
+  if (value > ceiling) return 'high';
+  return null;
+}
+
+/**
  * Both fields read as numbers. A full field can still be outside the range.
  * Naming which number, and which side of the range it fell on, is the
  * difference between a fix and a wall.

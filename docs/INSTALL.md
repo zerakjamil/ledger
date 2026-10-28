@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `8203803df21b6416f4791b7e1e405ee58168f7a2bd96c06fd6cb613c0669e549`). It is
+sha256 `f02b592539421aba08168a02e2a82d9f5f10043f56c9bf5b6c8ca6e1c64a89e0`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -92,9 +92,12 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 151 domain tests and `tsc --noEmit`.
+- 155 domain tests and `tsc --noEmit`.
 - The contract form reads `86,4`, `٩٦٫٤` and `86.4 cm` as numbers. A waist of 34 is refused by
   name, with the inch conversion (86.4 cm), instead of a blanket "put them in".
+- Each of the two numbers sits on a printed tape, 50 to 200 cm and 30 to 300 kg, with a needle
+  that moves as the digits arrive. On the phone, 34 parks the needle on the left end in rust;
+  86.4 puts it at a quarter of the tape. The tape also appears in the weekly review.
 - The full UI on the iOS simulator.
 - This codebase installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.

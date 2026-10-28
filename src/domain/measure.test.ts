@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { inMeasureRange, measureComplaint, measureIssue } from './measure';
+import { inMeasureRange, measureComplaint, measureIssue, tapeOverflow, tapePosition } from './measure';
 
 describe('the two numbers that matter', () => {
   test('a waist of 34 is named as outside the centimetre range', () => {
@@ -47,5 +47,30 @@ describe('the signature names the number that is wrong', () => {
   test('a real waist and a real weight pass without a word', () => {
     expect(measureComplaint(86.4, 90)).toBeNull();
     expect(measureComplaint(50, 30)).toBeNull();
+  });
+});
+
+describe('the printed tape', () => {
+  test('a reading sits at its true fraction of the tape', () => {
+    expect(tapePosition('waist', 50)).toBe(0);
+    expect(tapePosition('waist', 200)).toBe(1);
+    expect(tapePosition('waist', 125)).toBe(0.5);
+    expect(tapePosition('weight', 30)).toBe(0);
+    expect(tapePosition('weight', 300)).toBe(1);
+  });
+
+  test('34 cm runs off the left end and is clamped there', () => {
+    expect(tapeOverflow('waist', 34)).toBe('low');
+    expect(tapePosition('waist', 34)).toBe(0);
+  });
+
+  test('a reading past the right end is clamped at the right end', () => {
+    expect(tapeOverflow('weight', 400)).toBe('high');
+    expect(tapePosition('weight', 400)).toBe(1);
+  });
+
+  test('a real reading never reports overflow', () => {
+    expect(tapeOverflow('waist', 86.4)).toBeNull();
+    expect(tapeOverflow('weight', 90)).toBeNull();
   });
 });
