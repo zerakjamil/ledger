@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { HOME_KIT } from '../domain/equipment';
+import { measureComplaint, measureIssue, type Measure } from '../domain/measure';
+import { parseInputNumber } from '../domain/number';
 import { useStore } from '../state/provider';
 import { color, mono, sans, space } from '../theme/tokens';
 import {
@@ -38,12 +40,17 @@ export default function Onboarding() {
   const [stake, setStake] = useState('Ten to the jar for every unexplained skip.');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  /** Inline notes wait for a blur, or for the first signature, not for a keystroke. */
+  const [attempted, setAttempted] = useState(false);
+  const [focused, setFocused] = useState<Measure | null>(null);
 
-  const valid = useMemo(() => {
-    const w = Number(waist);
-    const kg = Number(weight);
-    return Number.isFinite(w) && w > 50 && w < 200 && Number.isFinite(kg) && kg > 30 && kg < 300;
-  }, [waist, weight]);
+  const waistIssue = measureIssue('waist', waist);
+  const weightIssue = measureIssue('weight', weight);
+
+  /** An old complaint has no business surviving the edit that answers it. */
+  useEffect(() => {
+    setProblem(null);
+  }, [waist, weight, days, plates]);
 
   const toggleDay = (day: number) => {
     setDays((current) =>
@@ -57,8 +64,17 @@ export default function Onboarding() {
 
   const sign = async () => {
     setProblem(null);
-    if (!valid) {
-      setProblem('Waist and weight are the two numbers. Put them in first.');
+    setAttempted(true);
+
+    const waistValue = parseInputNumber(waist);
+    const weightValue = parseInputNumber(weight);
+    if (waistValue === null || weightValue === null) {
+      setProblem(unreadable(waist, weight));
+      return;
+    }
+    const complaint = measureComplaint(waistValue, weightValue);
+    if (complaint) {
+      setProblem(complaint);
       return;
     }
     if (days.length < 2) {
@@ -72,14 +88,16 @@ export default function Onboarding() {
     }
     setBusy(true);
     try {
+      const bar = parseInputNumber(barKg);
+      const top = parseInputNumber(maxLoad);
       await actions.saveEquipment({
-        barKg: Number(barKg) || 10,
+        barKg: bar !== null && bar > 0 ? bar : 10,
         platePairsKg: platePairs,
         dumbbellsKg: parseList(dumbbells),
-        maxLoadKg: Number(maxLoad) || undefined,
+        maxLoadKg: top !== null && top > 0 ? top : undefined,
       });
-      await actions.logWaist(Number(waist));
-      await actions.logWeight(Number(weight));
+      await actions.logWaist(waistValue);
+      await actions.logWeight(weightValue);
       await actions.signContract({
         days,
         hour,
@@ -114,16 +132,22 @@ export default function Onboarding() {
           label="WAIST AT THE NAVEL"
           value={waist}
           onChangeText={setWaist}
+          onFocus={() => setFocused('waist')}
+          onBlur={() => setFocused(null)}
           keyboardType="decimal-pad"
           suffix="cm"
+          error={attempted || focused !== 'waist' ? waistIssue : null}
           hint="Three readings, same spot, breathe out. Put the middle one in."
         />
         <Field
           label="BODYWEIGHT"
           value={weight}
           onChangeText={setWeight}
+          onFocus={() => setFocused('weight')}
+          onBlur={() => setFocused(null)}
           keyboardType="decimal-pad"
           suffix="kg"
+          error={attempted || focused !== 'weight' ? weightIssue : null}
           hint="Morning, after the bathroom, before food. You will log it daily from now on."
         />
       </Block>
@@ -331,4 +355,17 @@ function parseList(raw: string): number[] {
     .split(/[, ]+/)
     .map((part) => Number(part))
     .filter((n) => Number.isFinite(n) && n > 0);
+}
+
+/** Both fields are filled here; the question is only what they read as. */
+function unreadable(waist: string, weight: string): string {
+  if (!waist.trim() && !weight.trim()) {
+    return 'The waist and the weight are still empty. Nothing was saved.';
+  }
+  if (!waist.trim()) return 'The waist is still empty. Nothing was saved.';
+  if (!weight.trim()) return 'The weight is still empty. Nothing was saved.';
+  if (parseInputNumber(waist) === null) {
+    return 'The waist does not read as a number. Type the digits only, for example 86.4. Nothing was saved.';
+  }
+  return 'The weight does not read as a number. Type the digits only, for example 90. Nothing was saved.';
 }

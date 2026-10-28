@@ -1,7 +1,7 @@
 # Putting it on the phone
 
 The file is `dist/ledger-1.0.0-arm64.apk` (32 MB, arm64, Android 7.0 and up,
-sha256 `73a7843253afe4b1006e236b2c8331c433d60717bd15a721693ce5bf54f56ac5`). It is
+sha256 `8203803df21b6416f4791b7e1e405ee58168f7a2bd96c06fd6cb613c0669e549`). It is
 a release build: the JavaScript is bundled, Metro is not needed, and it runs with
 the phone in aeroplane mode.
 
@@ -92,9 +92,11 @@ builds leave those lines blank, so an empty field looks empty.
 
 Verified on this machine:
 
-- 138 domain tests and `tsc --noEmit`.
+- 151 domain tests and `tsc --noEmit`.
+- The contract form reads `86,4`, `٩٦٫٤` and `86.4 cm` as numbers. A waist of 34 is refused by
+  name, with the inch conversion (86.4 cm), instead of a blanket "put them in".
 - The full UI on the iOS simulator.
-- This exact APK installed and launched on an Android 14 arm64 emulator: cover,
+- This codebase installed and launched on an Android 14 arm64 emulator: cover,
   contract, permission prompt, home, session, review, log, settings.
 - 40 reminders waiting in the system queue for a Mon/Wed/Fri contract (`window=0`):
   anchor at 19:00 and fallback at 20:30 on each training day, a morning-after

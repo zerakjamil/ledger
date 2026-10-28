@@ -236,15 +236,23 @@ export function Field({
   suffix,
   right,
   multiline,
+  error,
   ...props
-}: TextInputProps & { label: string; hint?: string; suffix?: string; right?: string }) {
+}: TextInputProps & {
+  label: string;
+  hint?: string;
+  suffix?: string;
+  right?: string;
+  /** A filled field that cannot be used says why, under the line it is on. */
+  error?: string | null;
+}) {
   return (
     <View style={{ gap: space.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <T variant="chapter">{label}</T>
         {right ? <T variant="chapter">{right}</T> : null}
       </View>
-      <View style={[styles.fieldRow, multiline && styles.fieldRowMultiline]}>
+      <View style={[styles.fieldRow, multiline && styles.fieldRowMultiline, error && styles.fieldRowError]}>
         <TextInput
           {...props}
           multiline={multiline}
@@ -256,6 +264,11 @@ export function Field({
         />
         {suffix ? <T variant="figureSmall">{suffix}</T> : null}
       </View>
+      {error ? (
+        <T variant="small" style={{ color: color.rust }}>
+          {error}
+        </T>
+      ) : null}
       {hint ? <T variant="small">{hint}</T> : null}
     </View>
   );
@@ -509,6 +522,7 @@ const styles = StyleSheet.create({
     borderBottomColor: color.ruleStrong,
     paddingBottom: 4,
   },
+  fieldRowError: { borderBottomColor: color.rust },
   fieldRowMultiline: { alignItems: 'flex-start', paddingTop: 4 },
   input: {
     flex: 1,

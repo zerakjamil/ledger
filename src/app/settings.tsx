@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, View } from 'react-native';
 import { requestPinWidget } from 'react-native-android-widget';
 import { barbellLoads } from '../domain/equipment';
+import { parseInputNumber } from '../domain/number';
 import { useStore } from '../state/provider';
 import { color, mono, space } from '../theme/tokens';
 import { clockLabel, kg } from '../ui/format';
@@ -96,14 +97,16 @@ export default function Settings() {
 
   /** One button. The kit and the hour are saved together, and the queue follows. */
   const save = async () => {
+    const bar = parseInputNumber(barKg);
+    const top = parseInputNumber(ceiling);
     setBusy(true);
     setSaved(null);
     try {
       await actions.saveEquipment({
-        barKg: Number(barKg) || 10,
+        barKg: bar !== null && bar > 0 ? bar : 10,
         platePairsKg: parseList(plates),
         dumbbellsKg: parseList(dumbbells),
-        maxLoadKg: Number(ceiling) || undefined,
+        maxLoadKg: top !== null && top > 0 ? top : undefined,
       });
       const count = contract ? await actions.updateSchedule(days, hour, minute) : 0;
       setPending(count);

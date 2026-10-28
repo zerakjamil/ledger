@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { weeklyAdvice } from '../domain/coach';
 import { startOfWeek, todayKey, weekdayOf } from '../domain/consistency';
+import { inMeasureRange, MEASURE_RANGE } from '../domain/measure';
+import { parseInputNumber } from '../domain/number';
 import { waistTrend, weightTrend } from '../domain/state';
 import { useStore } from '../state/provider';
 import { color, space } from '../theme/tokens';
@@ -12,6 +14,7 @@ import {
   Field,
   LinkRow,
   Masthead,
+  Notice,
   PrimaryButton,
   Rule,
   Screen,
@@ -37,6 +40,7 @@ export default function Review() {
   const floorThisWeek = state.stepDays.some((day) => day >= weekStart);
   const [floorDone, setFloorDone] = useState<boolean | null>(floorThisWeek ? true : null);
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
   const weekday = weekdayOf(today);
   const daysLeftInWeek = 7 - (weekday === 0 ? 6 : weekday - 1);
@@ -53,16 +57,32 @@ export default function Review() {
   });
 
   const save = async () => {
+    setProblem(null);
+    const parsedWeight = weightText.trim() ? parseInputNumber(weightText) : null;
+    const parsedWaist = waistText.trim() ? parseInputNumber(waistText) : null;
+
+    /** A number left out is fine. A number the field cannot read is not. */
+    if (weightText.trim() && parsedWeight === null) {
+      setProblem('The weight does not read as a number. Nothing was saved.');
+      return;
+    }
+    if (waistText.trim() && parsedWaist === null) {
+      setProblem('The waist does not read as a number. Nothing was saved.');
+      return;
+    }
+    if (parsedWeight !== null && !inMeasureRange('weight', parsedWeight)) {
+      setProblem(rangeText('weight', parsedWeight));
+      return;
+    }
+    if (parsedWaist !== null && !inMeasureRange('waist', parsedWaist)) {
+      setProblem(rangeText('waist', parsedWaist));
+      return;
+    }
+
     setBusy(true);
     try {
-      const parsedWeight = Number(weightText);
-      if (weightText.trim() && Number.isFinite(parsedWeight) && parsedWeight > 0) {
-        await actions.logWeight(parsedWeight);
-      }
-      const parsedWaist = Number(waistText);
-      if (waistText.trim() && Number.isFinite(parsedWaist) && parsedWaist > 0) {
-        await actions.logWaist(parsedWaist);
-      }
+      if (parsedWeight !== null) await actions.logWeight(parsedWeight);
+      if (parsedWaist !== null) await actions.logWaist(parsedWaist);
       if (floorDone !== null && floorDone !== floorThisWeek) {
         await actions.logSteps(floorDone);
       }
@@ -174,6 +194,7 @@ export default function Review() {
 
       <View style={{ flex: 1 }} />
 
+      {problem ? <Notice tone="rust">{problem}</Notice> : null}
       <PrimaryButton label={busy ? 'Writing' : 'Close the week'} disabled={busy} onPress={save} />
       <LinkRow
         label="The full ledger"
@@ -197,4 +218,9 @@ function Stat({ label, value }: { label: string; value: string }) {
       <T variant="value">{value}</T>
     </View>
   );
+}
+
+function rangeText(measure: 'waist' | 'weight', value: number): string {
+  const { floor, ceiling, unit } = MEASURE_RANGE[measure];
+  return `The ${measure} reads ${oneDecimal(value)} ${unit}, outside ${floor} to ${ceiling} ${unit}. Nothing was saved.`;
 }
