@@ -58,6 +58,23 @@ Where the demo is a neighbouring variation, the form page says so in one line
 (`src/ui/movementArt.ts`, `DEMO_NOTES`). A loop that quietly teaches the wrong
 setup is worse than no loop.
 
+## Why the 1,324-movement catalog stays out
+
+The same repository is MIT for the code, the record structure and the
+instruction text; the media is carved out as above. The text is the only part
+that could be taken without a licence, and it is weaker than what the form page
+already says. Its front squat, for example, instructs "pushing your hips back"
+and "making sure your knees do not go past your toes": the first is a back
+squat hinge, and the second is a warning a front squat cannot obey. The three
+cues here say "sit down between the feet" and "knees track over the toes",
+which is the movement.
+
+Breadth is the other reason. The app's mechanism is three movements a day,
+repeated for weeks; 1,324 choices with a search field would turn one decision
+into a browse. The dataset is a quarry for a later block, not a runtime
+dependency. `index.html` in the same repository is a good offline way to pick
+from it when that block is designed.
+
 ## The repositories that were rejected, and why
 
 - `yuhonas/free-exercise-db` — 876 exercises, two stills each, Unlicense. Legal
