@@ -137,3 +137,24 @@ magick src.gif -coalesce -resize 450x450 -filter Lanczos \
 rectangle. `-layers Optimize` last, or the file triples. Twelve frames at 100 ms,
 with a one-second hold on the first frame, is the source's own timing and it is
 kept as-is.
+
+## The mark
+
+The icon is a flexed arm, drawn once in `assets/brand/mark.svg` and tinted by
+`scripts/icons.py`. Rust `#A6431F` is the field and paper `#F6F2E9` is the mark:
+the same inversion the app uses when it prints a page.
+
+Android masks adaptive icons with shapes the app never sees, so the foreground
+is laid out against the 66 dp safe circle at the centre of the 108 dp layer. The
+script measures the distance from the mark's centre to its furthest pixel and
+refuses to write a foreground that a teardrop mask could clip. At 46% of the
+layer the arm fills about two thirds of the 72 dp viewport a launcher shows;
+the legacy icon, which is never masked, carries the arm at 62%.
+
+```sh
+python3 scripts/icons.py   # needs rsvg-convert (brew install librsvg) and Pillow
+```
+
+It writes the legacy icon, adaptive foreground, themed monochrome, notification
+small icon, splash and favicon. `npx expo prebuild` turns those into mipmaps;
+nothing under `android/` is edited by hand.

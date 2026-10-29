@@ -15,7 +15,7 @@
     "android": {
       "package": "com.zerakjamil.ledger",
       "adaptiveIcon": {
-        "backgroundColor": "#F6F2E9",
+        "backgroundColor": "#A6431F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -67,7 +67,8 @@
       [
         "expo-notifications",
         {
-          "color": "#A6431F"
+          "color": "#A6431F",
+          "icon": "./assets/notification-icon.png"
         }
       ],
       [
@@ -75,15 +76,16 @@
         {
           "backgroundColor": "#F6F2E9",
           "image": "./assets/splash-icon.png",
-          "imageWidth": 180,
+          "imageWidth": 240,
           "dark": {
             "backgroundColor": "#F6F2E9",
-            "image": "./assets/splash-icon.png"
+            "image": "./assets/splash-icon.png",
+            "imageWidth": 240
           },
           "android": {
             "backgroundColor": "#F6F2E9",
             "image": "./assets/splash-icon.png",
-            "imageWidth": 180
+            "imageWidth": 240
           }
         }
       ]
