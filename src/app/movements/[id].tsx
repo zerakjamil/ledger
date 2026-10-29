@@ -1,6 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
-import { catalogRecord, equipmentLabel, patternLabel } from '../../domain/catalog';
+import {
+  BODY_GROUPS,
+  bodyGroupOf,
+  catalogRecord,
+  equipmentLabel,
+  patternLabel,
+} from '../../domain/catalog';
 import {
   movementById,
   programSlot,
@@ -41,6 +47,16 @@ export default function MovementPage() {
   }
 
   const movement = movementById(record.id)!;
+  /**
+   * The dataset's own region names are clinical ("waist", "upper legs"), and
+   * "waist" already means the tape measurement in this app. Read the seven
+   * groups the chips use instead.
+   */
+  const region = BODY_GROUPS.find((group) => group.key === bodyGroupOf(record))?.label ?? 'All';
+  const pattern = patternLabel(movement.pattern);
+  const unit = movement.unit === 'seconds' ? 'held' : 'reps';
+  /** Never print the same word twice, one line apart. */
+  const qualifier = pattern.toLowerCase() === region.toLowerCase() ? unit : `${pattern} · ${unit}`;
   const plate = plateFor(record.id);
   const fitting = slotsForPattern(movement.pattern);
   const candidates = passed ? [passed] : fitting.length > 0 ? fitting : [...PROGRAM_SLOTS];
@@ -90,7 +106,7 @@ export default function MovementPage() {
 
       <View style={{ gap: space.xs }}>
         <T variant="chapter">
-          {record.bodyPart.toUpperCase()} · {equipmentLabel(record)}
+          {region.toUpperCase()} · {equipmentLabel(record)}
         </T>
         <T variant="title">{record.name}</T>
         <T variant="small">
@@ -100,9 +116,7 @@ export default function MovementPage() {
             : ''}
           .
         </T>
-        <T variant="micro">
-          {patternLabel(movement.pattern)} · {movement.unit === 'seconds' ? 'held' : 'reps'}
-        </T>
+        <T variant="micro">{qualifier}</T>
         {inPlan ? <Stamp label="IN THE PLAN" tone="moss" /> : null}
       </View>
 

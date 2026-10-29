@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { todayKey } from '../domain/consistency';
 import { closedBy, dayPlan } from '../domain/day';
 import { describeLoad } from '../domain/equipment';
@@ -16,6 +16,7 @@ import { cancelTodaysHelp } from '../services/notifications';
 import { useStore } from '../state/provider';
 import { color, mono, rule, sans, space } from '../theme/tokens';
 import { clockLabel, dayStamp, elapsedLabel, kg, restLabel } from '../ui/format';
+import { plateFor } from '../ui/movementArt';
 import {
   Masthead,
   PrimaryButton,
@@ -107,6 +108,19 @@ export default function Session() {
   const [reps, setReps] = useState(prescription.target);
   const [rir, setRir] = useState(2);
   const unit = movement.unit === 'seconds' ? 's' : '';
+
+  /**
+   * The loop belongs on this page, not one tap away. Between two sets you look
+   * at the phone to check the setup, and a name is not a picture. One loop runs
+   * here; the table below stays the thing your thumb touches.
+   */
+  const plate = plateFor(movement.id);
+  const artWidth = compact ? 84 : 104;
+  const openForm = () =>
+    router.push({
+      pathname: '/form/[id]',
+      params: { id: movement.id, slot: slotIds[moveIndex], from: 'session' },
+    });
 
   useEffect(() => {
     setReps(prescription.target);
@@ -292,6 +306,13 @@ export default function Session() {
   }
 
   if (phase === 'summary') {
+    /**
+     * The page is closed, so the rotation has already moved. Say which session
+     * is next and when it opens, here, where the question is asked. Finding it
+     * only on the home page tomorrow is how a rotation feels invisible.
+     */
+    const after = dayPlan(state, todayKey(startedAt));
+    const upcoming = nextKey(key);
     return (
       <Screen>
         <Masthead title="Ledger" right={elapsedLabel(seconds)} />
@@ -355,10 +376,20 @@ export default function Session() {
           ))}
         </View>
 
-        <T variant="small">
-          {key} is written. The rotation moves to {nextKey(key)} next, and the page will say so on
-          the day.
-        </T>
+        <View style={{ gap: space.xs }}>
+          <T variant="chapter">NEXT IN THE ROTATION</T>
+          <T variant="heading">
+            {upcoming} · {SESSIONS[upcoming].title}
+          </T>
+          <T variant="small">
+            {after.nextDay
+              ? `The page opens ${dayStamp(after.nextDay)} at ${clockLabel(
+                  state.contract?.hour ?? 19,
+                  state.contract?.minute ?? 0,
+                )}. A different day does not change which session it is.`
+              : 'The next appointment is not set. Settings holds the days.'}
+          </T>
+        </View>
 
         <View style={{ flex: 1 }} />
         <PrimaryButton
@@ -387,31 +418,53 @@ export default function Session() {
           {key} · {kind === 'floor' ? 'FLOOR' : session.title.toLocaleUpperCase()}
         </T>
         <T variant="title">{movement.name}</T>
-        <T variant="figure">
-          {prescription.sets} × {prescription.target}
-          {unit} · {describeLoad(movement, prescription.loadKg)} · RIR {movement.rirTarget}
-        </T>
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`How to do ${movement.name}`}
-          hitSlop={10}
-          onPress={() =>
-            router.push({
-              pathname: '/form/[id]',
-              params: { id: movement.id, slot: slotIds[moveIndex], from: 'session' },
-            })
-          }
-          style={{ alignSelf: 'flex-start' }}
-        >
-          <T variant="micro" style={{ textDecorationLine: 'underline', color: color.inkSoft }}>
-            See the position
-          </T>
-        </Pressable>
-        {prescription.stage > 0 ? (
-          <T variant="small" style={{ color: color.rust }}>
-            Lever {prescription.stage}: {movement.levers[prescription.stage]}
-          </T>
+      </View>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: space.md,
+          alignItems: 'center',
+          paddingTop: space.sm,
+        }}
+      >
+        {plate ? (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`How to do ${movement.name}`}
+            hitSlop={8}
+            onPress={openForm}
+            style={{ width: artWidth, gap: space.xs }}
+          >
+            <Image source={plate} style={{ width: artWidth, height: artWidth }} />
+            <T variant="micro">See the position</T>
+          </Pressable>
         ) : null}
+
+        <View style={{ flex: 1, gap: space.xs }}>
+          <T variant="figure">
+            {prescription.sets} × {prescription.target}
+            {unit} · {describeLoad(movement, prescription.loadKg)}
+          </T>
+          <T variant="figureSmall">RIR {movement.rirTarget}</T>
+          {prescription.stage > 0 ? (
+            <T variant="small" style={{ color: color.rust }}>
+              Lever {prescription.stage}: {movement.levers[prescription.stage]}
+            </T>
+          ) : null}
+          {plate ? null : (
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              onPress={openForm}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              <T variant="micro" style={{ textDecorationLine: 'underline', color: color.inkSoft }}>
+                See the position
+              </T>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <Rule strong />
