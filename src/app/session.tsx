@@ -93,6 +93,8 @@ export default function Session() {
   const [results, setResults] = useState<Record<string, SetResult[]>>({});
   const [rest, setRest] = useState<number | null>(null);
   const [phase, setPhase] = useState<'work' | 'summary'>('work');
+  /** How the page was actually closed, which is not how the route was opened. */
+  const [closedAs, setClosedAs] = useState<'full' | 'floor'>(kind);
   const [saving, setSaving] = useState(false);
   const [seconds, setSeconds] = useState(0);
 
@@ -159,6 +161,7 @@ export default function Session() {
     setSaving(true);
     try {
       await actions.finishSession(key, final, startedAt, all);
+      setClosedAs(final);
       setPhase('summary');
     } catch {
       Alert.alert(
@@ -279,7 +282,13 @@ export default function Session() {
     );
   }
 
-  if (alreadyWritten) {
+  /**
+   * The receipt is for a second visit the same day, not for the page you have
+   * just written. `finishSession` commits before this render, so without the
+   * phase check the summary would be replaced by "Already written" the instant
+   * it was earned: no reward, no decisions, no next session.
+   */
+  if (alreadyWritten && phase !== 'summary') {
     const plan = dayPlan(state, todayKey(startedAt));
     return (
       <Screen>
@@ -318,9 +327,11 @@ export default function Session() {
         <Masthead title="Ledger" right={elapsedLabel(seconds)} />
         <Rule strong />
         <View style={{ gap: space.xs, paddingTop: space.sm }}>
-          <T variant="chapter">{kind === 'floor' ? 'FLOOR SESSION' : `SESSION ${key} CLOSED`}</T>
+          <T variant="chapter">
+            {closedAs === 'floor' ? 'FLOOR SESSION' : `SESSION ${key} CLOSED`}
+          </T>
           <T variant="display">
-            {kind === 'floor'
+            {closedAs === 'floor'
               ? repairedToday
                 ? 'The week is whole.'
                 : 'Ten minutes. It counts.'
@@ -329,7 +340,9 @@ export default function Session() {
           <T variant="body" style={{ color: color.inkSoft }}>
             {repairedToday
               ? 'The page you skipped is written. The floor session counts in full.'
-              : `${totalSets} ${totalSets === 1 ? 'set' : 'sets'} on the page. The next prescription is already decided.`}
+              : closedAs === 'floor'
+                ? `${totalSets} ${totalSets === 1 ? 'set' : 'sets'} on the page. It counts for the week; the weights stay where they were.`
+                : `${totalSets} ${totalSets === 1 ? 'set' : 'sets'} on the page. The next prescription is already decided.`}
           </T>
         </View>
 
