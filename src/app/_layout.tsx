@@ -59,6 +59,13 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="session" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+          {/**
+           * The gate sits in front of a full session, never in front of the
+           * floor version: the ten minute session is the door for the worst
+           * day of the week, and putting a photograph in front of it would
+           * close the only door that still works at 21:40.
+           */}
+          <Stack.Screen name="gate" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="skip" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="form/[id]" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="movements" options={{ animation: 'slide_from_right' }} />

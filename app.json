@@ -72,6 +72,14 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Ledger opens the front camera once, at the bench, so the session starts from the room and not from the sofa.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#F6F2E9",

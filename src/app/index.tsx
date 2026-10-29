@@ -332,20 +332,18 @@ export default function Home() {
                   : 'about 40 minutes'
             }
             onPress={() =>
-              router.push({
-                pathname: '/session',
-                params: { key: plan.key, kind: floorFirst ? 'floor' : 'full' },
-              })
+              floorFirst
+                ? router.push({ pathname: '/session', params: { key: plan.key, kind: 'floor' } })
+                : router.push({ pathname: '/gate', params: { key: plan.key, kind: 'full' } })
             }
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <QuietButton
               label={floorFirst ? 'Full session' : 'Ten minute version'}
               onPress={() =>
-                router.push({
-                  pathname: '/session',
-                  params: { key: plan.key, kind: floorFirst ? 'full' : 'floor' },
-                })
+                floorFirst
+                  ? router.push({ pathname: '/gate', params: { key: plan.key, kind: 'full' } })
+                  : router.push({ pathname: '/session', params: { key: plan.key, kind: 'floor' } })
               }
             />
             <QuietButton

@@ -20,7 +20,7 @@ import {
   SectionHead,
   T,
 } from '../ui/kit';
-import { notificationStatus, pendingCount } from '../services/notifications';
+import { notificationStatus, pendingCount, testLadder } from '../services/notifications';
 
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0];
@@ -255,6 +255,25 @@ export default function Settings() {
                 : 'Off. The phone stays quiet. The ledger does not.'
             }
             onPress={() => (state.alarms ? stopAlarms() : void setAlarms(true))}
+          />
+        ) : null}
+
+        {contract && state.alarms && permission === 'granted' ? (
+          <LinkRow
+            label="Hear the ladder"
+            detail="Five alerts, ten seconds apart. The real ones, not a preview."
+            onPress={() => {
+              void testLadder().then((count) => {
+                if (count === 0) {
+                  Alert.alert('Nothing was queued', 'The system refused the alerts.');
+                  return;
+                }
+                Alert.alert(
+                  'Five alerts are coming',
+                  'Put the phone down and wait. Tapping one opens the gate. Passing the gate stops the rest.',
+                );
+              });
+            }}
           />
         ) : null}
       </View>

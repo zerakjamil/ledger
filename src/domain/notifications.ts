@@ -11,7 +11,7 @@ export interface NotificationPrefs {
   reviewHour: number;
 }
 
-export type NotificationKind = 'anchor' | 'fallback' | 'review' | 'debt' | 'repair';
+export type NotificationKind = 'anchor' | 'fallback' | 'review' | 'debt' | 'repair' | 'nag';
 
 export interface NotificationSpec {
   /** Stable, so re-planning replaces instead of duplicating. */
@@ -20,7 +20,36 @@ export interface NotificationSpec {
   at: Date;
   title: string;
   body: string;
+  /** Android setOngoing. A nag cannot be swiped away, only answered or paid for. */
+  sticky?: boolean;
+  /** Which channel the repeat belongs to. Android locks a channel's volume at creation. */
+  intensity?: 'gentle' | 'firm' | 'loud';
   data: { route: string; kind: NotificationKind };
+}
+
+/**
+ * The ladder. The anchor is rung zero; these are the repeats that follow it.
+ *
+ * Five extra posts, twenty minutes, then silence. The length is the point: long
+ * enough to make standing up easier than ignoring the phone, short enough that
+ * a stubborn evening never ends in the notification permission being revoked.
+ * Everything after twenty minutes is a different mechanism (the written skip),
+ * and a phone that rings past it is training the user to dismiss alarms.
+ */
+export const NAG_MINUTES = [2, 5, 9, 14, 20] as const;
+
+/** How many days ahead carry a full ladder. The rest of the horizon carries one alarm. */
+export const LADDER_DAYS = 7;
+
+/**
+ * Which fixed channel a rung uses. Android freezes a channel's importance the
+ * moment it is created, so escalation has to be three channels chosen up front,
+ * not one channel turned up later.
+ */
+export function nagIntensity(index: number): 'gentle' | 'firm' | 'loud' {
+  if (index < 2) return 'gentle';
+  if (index < 4) return 'firm';
+  return 'loud';
 }
 
 export interface PlanInput {
@@ -34,6 +63,12 @@ export interface PlanInput {
   trainedDays?: readonly string[];
   /** Skip days. A skip on a training day is written but still not a page. */
   skipDays?: readonly string[];
+  /**
+   * Days the gate was passed. The gate is the only thing that silences the
+   * ladder without writing a page: the user stood at the bench with the weight
+   * in their hand, so the phone has no business ringing at them while they lift.
+   */
+  gateDays?: readonly string[];
   /** The price the user wrote for an unexplained skip, verbatim. */
   stake?: string;
   /** The day the contract was signed. Appointments before it cannot be missed. */
@@ -43,6 +78,8 @@ export interface PlanInput {
   /** A booked ten minute repair. It is a commitment, not a debt. */
   repair?: { day: string; hour: number; minute: number } | null;
   horizonDays?: number;
+  /** Days that carry the full ladder. The rest of the horizon carries one alarm. */
+  ladderDays?: number;
   /** iOS keeps 64 pending; stay below it. */
   maxPending?: number;
 }
@@ -64,6 +101,19 @@ const FALLBACK_COPY: readonly [string, string][] = [
 ];
 
 /**
+ * Each rung states a fact and names the two doors. Nothing here encourages,
+ * because encouragement is what a notification does when it has no leverage.
+ * The last three rungs are the price, said plainly.
+ */
+export const NAG_COPY: readonly [string, string][] = [
+  ['Still ringing', 'The bench is where you left it. Set 1 has not started.'],
+  ['This is the deciding part', 'Photo at the bench, or spend the token. Both are answers.'],
+  ['The page is still blank', 'The blank page is the only thing being counted.'],
+  ['The token is the other door', 'One tap spends it, and the week gets shorter by one.'],
+  ['Last call', 'Two minutes at the bench, or today is written as it stands.'],
+];
+
+/**
  * Local calendar triggers, planned forward in a rolling window. Pure so the
  * whole schedule can be proven in a test instead of guessed on a phone.
  */
@@ -75,16 +125,19 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
     writtenDays = [],
     trainedDays = [],
     skipDays = [],
+    gateDays = [],
     stake,
     since,
     brief = null,
     repair = null,
     horizonDays = 7,
+    ladderDays = LADDER_DAYS,
     maxPending = 60,
   } = input;
   const today = todayKey(now);
   const written = new Set(writtenDays);
   const trained = new Set(trainedDays);
+  const gated = new Set(gateDays);
   /** Cancellation is about evidence, and both a session and a skip are evidence. */
   const closed = new Set([...written, ...trained]);
   const writtenSkips = new Set(skipDays.filter((day) => !trained.has(day))).size;
@@ -103,32 +156,77 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
     if (offset === 0 && closedToday) continue;
 
     const anchor = atLocal(day, prefs.anchorHour, prefs.anchorMinute);
-    if (anchor.getTime() > now.getTime() + 30_000) {
-      const [title, generic] = ANCHOR_COPY[offset % ANCHOR_COPY.length]!;
-      const body = brief && !briefUsed ? brief.text : generic;
-      if (brief && !briefUsed) briefUsed = true;
-      specs.push({
-        id: `anchor-${day}`,
-        kind: 'anchor',
-        at: anchor,
-        title,
-        body,
-        data: { route: '/', kind: 'anchor' },
-      });
-    }
+    const gatedToday = gated.has(day);
 
-    const fallback = new Date(anchor.getTime() + 90 * 60_000);
-    if (fallback.getTime() > now.getTime() + 30_000) {
-      const [title, body] = FALLBACK_COPY[offset % FALLBACK_COPY.length]!;
-      specs.push({
-        id: `fallback-${day}`,
-        kind: 'fallback',
-        at: fallback,
-        title,
-        body,
-        /** The weakest moment of the day gets the shortest path: one tap to the ten minute version. */
-        data: { route: '/session?kind=floor', kind: 'fallback' },
-      });
+    /**
+     * A gated day is quiet, but it is not closed. The page may still be blank,
+     * and the morning-after alarm is the one that catches that.
+     */
+    if (!gatedToday) {
+      if (anchor.getTime() > now.getTime() + 30_000) {
+        const [title, generic] = ANCHOR_COPY[offset % ANCHOR_COPY.length]!;
+        const body = brief && !briefUsed ? brief.text : generic;
+        if (brief && !briefUsed) briefUsed = true;
+        specs.push({
+          id: `anchor-${day}`,
+          kind: 'anchor',
+          at: anchor,
+          title,
+          body,
+          data: { route: '/', kind: 'anchor' },
+        });
+      }
+
+      const fallback = new Date(anchor.getTime() + 90 * 60_000);
+      if (fallback.getTime() > now.getTime() + 30_000) {
+        const [title, body] = FALLBACK_COPY[offset % FALLBACK_COPY.length]!;
+        specs.push({
+          id: `fallback-${day}`,
+          kind: 'fallback',
+          at: fallback,
+          title,
+          body,
+          /** The weakest moment of the day gets the shortest path: one tap to the ten minute version. */
+          data: { route: '/session?kind=floor', kind: 'fallback' },
+        });
+      }
+
+      /**
+       * The ladder only covers the near future. Seven days of repeats is
+       * thirty five extra triggers, which the queue can afford; twenty eight
+       * would be a hundred and forty, and a phone that has been ignored for a
+       * month does not need a hundred and forty alarms waiting for it.
+       */
+      if (offset >= 0 && offset < ladderDays) {
+        /**
+         * If the anchor has already fired and the app is being opened, the
+         * ladder restarts from now. Otherwise opening the app would be the
+         * cheapest way to silence the phone, which is the one trick the gate
+         * exists to make impossible.
+         */
+        const late =
+          offset === 0 &&
+          anchor.getTime() <= now.getTime() &&
+          now.getTime() - anchor.getTime() < 6 * 60 * 60_000;
+        const base = late ? now : anchor;
+        if (base.getTime() > now.getTime() - 30_000 || late) {
+          NAG_MINUTES.forEach((minutes, index) => {
+            const at = new Date(base.getTime() + minutes * 60_000);
+            if (at.getTime() <= now.getTime() + 15_000) return;
+            const [title, body] = NAG_COPY[index]!;
+            specs.push({
+              id: `nag-${day}-${index}`,
+              kind: 'nag',
+              at,
+              title,
+              body,
+              sticky: true,
+              intensity: nagIntensity(index),
+              data: { route: '/gate', kind: 'nag' },
+            });
+          });
+        }
+      }
     }
 
     /**
@@ -234,7 +332,8 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
  */
 export function helpAlarmIds(ids: readonly string[], day: string): string[] {
   const help = new Set([`fallback-${day}`, `repair-${day}`]);
-  return ids.filter((id) => help.has(id));
+  const nag = `nag-${day}-`;
+  return ids.filter((id) => help.has(id) || id.startsWith(nag));
 }
 
 function dedupe(specs: readonly NotificationSpec[]): NotificationSpec[] {

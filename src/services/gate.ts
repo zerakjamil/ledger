@@ -1,0 +1,68 @@
+import { Directory, File, Paths } from 'expo-file-system';
+import { judge, unavailable, type GateScores, type GateVerdict } from '../domain/gate';
+
+/**
+ * Where the receipts live. One file a day, so the review page can put the face
+ * next to the number: a gate that leaves no trace is a gate that can be passed
+ * by walking past the phone.
+ */
+const FOLDER = 'gate';
+
+export async function keep(uri: string, day: string): Promise<string | null> {
+  try {
+    const folder = new Directory(Paths.document, FOLDER);
+    if (!folder.exists) folder.create({ intermediates: true, idempotent: true });
+    const name = `${day}.jpg`;
+    const target = new File(folder, name);
+    if (target.exists) target.delete();
+    /**
+     * Waited on, not fired and forgotten. The event that follows this writes the
+     * filename, and a receipt that is still being copied when the review asks
+     * for it is a broken image on the one page that is meant to be evidence.
+     */
+    await new File(uri).copy(target);
+    return name;
+  } catch {
+    /**
+     * A photo that could not be filed is still a photo that was taken. The gate
+     * opens, the page records no receipt, and nothing about a full disk is
+     * allowed to cancel a session.
+     */
+    return null;
+  }
+}
+
+export function receipt(name: string | null): File | null {
+  if (!name) return null;
+  try {
+    const file = new File(Paths.document, FOLDER, name);
+    return file.exists ? file : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The detector.
+ *
+ * Nothing is bundled yet: the model has to be trained on photographs of this
+ * room, which is a job for a weekend and a few hundred frames. Until then the
+ * gate is an honest ceremony and the page says it was unchecked, because a
+ * verdict invented by a placeholder is worse than no verdict at all.
+ *
+ * When the int8 model lands it goes here, and only here: the screen already
+ * speaks in GateVerdict, and the tests already cover every branch.
+ */
+export async function read(_uri: string): Promise<GateVerdict> {
+  const scores = await scoresFromModel(_uri);
+  return scores ? judge(scores) : unavailable();
+}
+
+/**
+ * Swapped for a real forward pass when `assets/gate/model.tflite` exists. Kept
+ * separate so the trading of confidence for a pass is one function to argue
+ * with, and so the tests never need a native runtime.
+ */
+async function scoresFromModel(_uri: string): Promise<GateScores | null> {
+  return null;
+}

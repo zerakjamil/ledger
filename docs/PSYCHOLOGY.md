@@ -37,13 +37,17 @@ They open the ten minute session itself, with the rotation read at that moment,
 so the weakest hour of the day costs one decision instead of three
 (`notifications.ts`, `session.tsx`).
 
-**The nag stops at set 1, not at the open.** The 20:30 fallback and a booked
-repair alarm exist for an hour that has not started. Logging the first set
-cancels them by identifier (`helpAlarmIds`, `services/notifications.ts`), so the
-phone goes quiet at the exact moment the work begins, and it stays quiet over the
-rest of the session. Opening the screen is not training; a set is. This makes
-the first set the cheapest way to silence the phone, which is the two minute
-rule with a receipt. The morning-after is never cancelled here, because an
+**The nag stops at set 1, not at the open.** The 20:30 fallback, a booked repair
+alarm and the five repeats of the ladder exist for an hour that has not started.
+Logging the first set cancels them by identifier (`helpAlarmIds`,
+`services/notifications.ts`), so the phone goes quiet at the exact moment the
+work begins, and it stays quiet over the rest of the session. Passing the gate
+silences them earlier still, and it dismisses the ones that have already landed:
+a sticky alert cannot be swiped, so cancelling the queue is not enough once one
+is on screen. Opening the screen is not training; a set is, and a photo at the
+bench is the evidence that the set is about to happen. This makes the first set
+the cheapest way to silence the phone, which is the two minute rule with a
+receipt. The morning-after is never cancelled here, because an
 abandoned page still owes its 08:00 answer. The queue is not rebuilt at that
 moment either: the session has not been written, so a rebuild from state would
 put the same fallback straight back. Cancelling by id only touches the two
@@ -57,10 +61,11 @@ the notification system that the ledger does not still believe.
 **Four weeks of queue, not one.** The planner looks 28 days ahead. A phone that
 is never opened rebuilds nothing, so a seven day horizon would let the app go
 silent at the end of the first week, which is exactly when the habit is most
-likely to be tested. Three appointments a week cost about forty pending alarms,
-under the sixty iOS tolerates; Android has no such limit. Every Sunday inside
-the horizon gets its own review, so weeks two, three and four still ask for the
-number. The queue can therefore keep every appointment in the trial without the
+likely to be tested. Three appointments a week cost about forty pending alarms.
+The ladder adds five repeats for each of the next seven days, about fifteen more,
+so the queue lands near fifty five: inside the sixty iOS tolerates, and far
+inside what Android holds. Every Sunday inside the horizon gets its own review,
+so weeks two, three and four still ask for the number. The queue can therefore keep every appointment in the trial without the
 app being opened once, and the first session or skip rebuilds it from the truth.
 
 **The alarm has a door.** A queue the user cannot stop is a queue the user
@@ -173,6 +178,84 @@ the week's three pages are still three pages, so a token is a pass on the
 streak, not a pass on the work. The reason becomes next week's advice ("Move the
 anchor, not the willpower"), so the escape hatch produces information instead of
 guilt.
+
+## The alarm that will not shut up, and the toll it charges
+
+Every reminder app has the same free door: swipe the notification and the
+evening is quiet. The tap that closes the alarm is easier than the session it
+was asking for, so the alarm eventually teaches the user to close alarms. That
+is the failure this app was built to avoid, and a reminder cannot fix it by
+being friendlier.
+
+So the ladder. The anchor fires at the appointment, and five repeats follow at
++2, +5, +9, +14 and +20 minutes. They are sticky: on Android a nag cannot be
+swiped away, only answered. After the fifth one the phone goes quiet for the
+night. The length is the point. Long enough to make standing up cheaper than
+ignoring the phone, short enough that a stubborn evening never ends with the
+notification permission revoked. An alarm that rings forever is not discipline,
+it is a reason to uninstall.
+
+Silence has exactly two prices:
+
+- **A photograph at the bench.** The gate opens the camera. The user sits on the
+  bench with a dumbbell in hand, and one shot opens the session. The photo is
+  kept as the receipt.
+- **The skip token.** The other door, one tap away, priced the same as any other
+  skip.
+
+There is no third door where the phone is silenced and nothing is written. That
+door is what every other reminder app offers, and closing it is the entire
+mechanism.
+
+**Why a photograph and not a button.** A button asks whether you intend to
+train, and at 19:02 the answer is always yes. A photograph asks whether you are
+in the room, which is a fact. The act of walking to the bench, picking up the
+weight and framing the shot is a commitment device: by the time the photo is
+taken, the hardest part of the session has already happened. The gate does not
+measure resolve. It removes the gap between deciding and starting.
+
+**Why the verifier can fail open.** The detector runs on the phone, and when it
+is missing or the model cannot look, the pass is recorded as `unverified`: the
+photo is kept, the session starts, and the page says no machine checked it. A
+lockout on the one night the user was ready is a lost session, and a lost
+session is the outcome this app exists to prevent. The gate is a toll booth, not
+an anti-cheat system. A photograph of a photograph would pass. That is
+acceptable, because the cost it imposes is friction and a written record, not
+proof.
+
+**Why opening the app cannot silence it.** If opening the app after the anchor
+cancelled the rest of the ladder, the app itself would become the free door.
+So a late visit rebuilds the ladder from the moment of opening: the phone keeps
+ringing for another twenty minutes, starting then. The only way to stop it is
+the photograph or the token.
+
+**Why the photo is written before the first set.** The gate pass is its own
+event, recorded the moment the shutter fires, not when the session is finished.
+A phone that rings while the bar is in the user's hands is punishing the exact
+behaviour it asked for. An abandoned session still leaves the day unpaid and
+still owes its morning-after alarm: the gate buys silence, not a page.
+
+**Why the bench is graded and not required.** A one handed selfie at arm's length
+cannot always hold a bench, a dumbbell and a face in the same frame. Requiring
+the bench would reject real sessions at the moment the user is standing in the
+room, which is the worst possible false negative. So the gate says
+"dumbbell in hand" when only the weight and the person are visible, and
+"bench in frame" when the whole room is there. Both open the door. Only the
+wording on the page differs.
+
+**Why the floor session is never gated.** The ten minute session is the door for
+the worst day of the week. Putting a photograph in front of it would close the
+only door that still works at 21:40.
+
+**And why the ladder is still allowed to be annoying.** A sticky alert is more
+coercive than a swipeable one, and the reactance argument further down this file
+applies to it more sharply, not less. Three things keep it on the right side of
+that line. It is bounded: twenty minutes a night, and only for the next seven
+days of the queue. It is answerable: the token door is on the same screen as the
+camera, one tap away, and spending it is a decision rather than a dismissal. And
+the door in settings still empties the entire queue, ladder included, in one
+row. What the ladder removes is not the ability to say no, it is the free way to
+say nothing.
 
 ## A skip ends with a plan, not a bill
 

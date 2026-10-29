@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { helpAlarmIds, planNotifications } from './notifications';
+import { helpAlarmIds, NAG_COPY, NAG_MINUTES, planNotifications } from './notifications';
 import type { NotificationPrefs } from './notifications';
 
 const prefs: NotificationPrefs = {
@@ -64,7 +64,18 @@ describe('notification planner', () => {
       horizonDays: 1,
       closedToday: true,
     });
-    expect(without.length).toBe(4);
+    /** Anchor, five repeats, the fallback, and the morning after. */
+    expect(without.map((spec) => spec.kind).sort()).toEqual([
+      'anchor',
+      'debt',
+      'fallback',
+      'nag',
+      'nag',
+      'nag',
+      'nag',
+      'nag',
+      'review',
+    ]);
     expect(withDone).toHaveLength(1);
     expect(withDone[0]!.kind).toBe('review');
   });
@@ -316,5 +327,68 @@ describe('the copy is true when it lands', () => {
     expect(review.data.route).toBe('/review');
     expect(debt.data.route).toBe('/session?kind=floor');
     expect(repair.data.route).toBe('/session?kind=floor');
+  });
+});
+
+describe('the ladder', () => {
+  test('five repeats follow the anchor, and they cannot be swiped', () => {
+    const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 7 });
+    const nags = specs.filter((spec) => spec.kind === 'nag');
+    expect(nags).toHaveLength(15);
+    expect(nags.every((spec) => spec.sticky === true)).toBe(true);
+    expect(nags.map((spec) => spec.intensity)).toContain('gentle');
+    expect(nags.map((spec) => spec.intensity)).toContain('firm');
+    expect(nags.map((spec) => spec.intensity)).toContain('loud');
+  });
+
+  test('every rung has copy, and the copy is not the same sentence five times', () => {
+    expect(NAG_COPY).toHaveLength(NAG_MINUTES.length);
+    expect(new Set(NAG_COPY.map(([title]) => title)).size).toBe(NAG_COPY.length);
+  });
+
+  test('the ladder is twenty minutes long, then it stops', () => {
+    const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 3 });
+    const monday = specs.filter((spec) => spec.id.startsWith('nag-2026-10-26'));
+    expect(monday).toHaveLength(5);
+    const anchor = specs.find((spec) => spec.id === 'anchor-2026-10-26')!;
+    const last = monday[monday.length - 1]!;
+    expect((last.at.getTime() - anchor.at.getTime()) / 60_000).toBe(20);
+  });
+
+  test('a gated day is silent, but the page it did not write still gets a morning alarm', () => {
+    const specs = planNotifications({
+      now: sundayMorning,
+      prefs,
+      horizonDays: 3,
+      gateDays: ['2026-10-26'],
+    });
+    expect(specs.filter((spec) => spec.id.includes('2026-10-26') && spec.kind !== 'debt')).toHaveLength(
+      0,
+    );
+    expect(specs.some((spec) => spec.id === 'debt-2026-10-26')).toBe(true);
+  });
+
+  test('opening the app after the anchor restarts the ladder instead of silencing it', () => {
+    const late = new Date(2026, 9, 26, 19, 3, 0);
+    const specs = planNotifications({ now: late, prefs, horizonDays: 2 });
+    const monday = specs.filter((spec) => spec.id.startsWith('nag-2026-10-26'));
+    expect(monday).toHaveLength(5);
+    expect((monday[0]!.at.getTime() - late.getTime()) / 60_000).toBe(2);
+    expect(monday.every((spec) => spec.at.getTime() > late.getTime())).toBe(true);
+  });
+
+  test('a gate pass cancels the delivered nags, not only the queued ones', () => {
+    const ids = [
+      'nag-2026-10-26-0',
+      'nag-2026-10-26-4',
+      'nag-2026-10-27-0',
+      'anchor-2026-10-26',
+      'fallback-2026-10-26',
+    ];
+    expect(helpAlarmIds(ids, '2026-10-26')).toEqual([
+      'nag-2026-10-26-0',
+      'nag-2026-10-26-4',
+      'fallback-2026-10-26',
+    ]);
   });
 });

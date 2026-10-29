@@ -11,8 +11,9 @@ import { AppState as DeviceState } from 'react-native';
 import { appendEvent, loadEvents } from '../db/events';
 import { todayKey } from '../domain/consistency';
 import { reduceEvents, type AppEvent, type AppState, type Contract } from '../domain/state';
+import type { GateGrade, GateScores } from '../domain/gate';
 import type { Equipment, SessionKey, SetResult } from '../domain/types';
-import { ensureNotificationPermission, syncSchedule } from '../services/notifications';
+import { ensureNotificationPermission, silenceLadder, syncSchedule } from '../services/notifications';
 import { syncWidget } from '../widget/sync';
 
 interface Actions {
@@ -38,6 +39,12 @@ interface Actions {
   setSlot: (slot: string, movementId: string) => Promise<void>;
   /** Silence or restore the appointment alarms. Returns the new queue length. */
   setAlarms: (on: boolean) => Promise<number>;
+  /**
+   * The photo was taken and the gate opened. This is written before the first
+   * set, not after, because its job is to stop the phone ringing at a session
+   * that has already started.
+   */
+  passGate: (grade: GateGrade, photo: string | null, scores: GateScores | null) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -180,6 +187,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSlot: async (slot, movementId) => {
         const next = await commit(makeEvent('slot.set', { slot, movementId }));
         /** The lock-screen brief names the first movement, so it is now stale. */
+        void syncSchedule(next).catch(() => undefined);
+      },
+      passGate: async (grade, photo, scores) => {
+        const next = await commit(makeEvent('gate.pass', { grade, photo, scores }));
+        /** A sticky nag cannot be swiped, so it has to be dismissed as well as cancelled. */
+        await silenceLadder(todayKey()).catch(() => 0);
         void syncSchedule(next).catch(() => undefined);
       },
       setAlarms: async (on) => {

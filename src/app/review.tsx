@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Image, ScrollView, View } from 'react-native';
 import { weeklyAdvice } from '../domain/coach';
 import { startOfWeek, todayKey, weekdayOf } from '../domain/consistency';
+import { gradeWord } from '../domain/gate';
 import { inMeasureRange, MEASURE_RANGE } from '../domain/measure';
 import { parseInputNumber } from '../domain/number';
 import { waistTrend, weightTrend } from '../domain/state';
+import { receipt } from '../services/gate';
 import { useStore } from '../state/provider';
 import { color, space } from '../theme/tokens';
 import { oneDecimal, shortDay, signed } from '../ui/format';
@@ -96,6 +98,16 @@ export default function Review() {
   };
 
   const recentWeights = state.weights.slice(-7);
+  /**
+   * The receipts, not the promises. A gate photo is the one piece of evidence in
+   * this ledger that is not a number, and the review is where the week gets
+   * read back to its author.
+   */
+  const receipts = state.gates
+    .filter((gate) => gate.day >= weekStart && gate.photo)
+    .map((gate) => ({ gate, file: receipt(gate.photo) }))
+    .filter((row) => row.file !== null)
+    .slice(-7);
 
   return (
     <Screen>
@@ -175,6 +187,34 @@ export default function Review() {
       </View>
 
       <Rule strong />
+
+      {receipts.length ? (
+        <View style={{ gap: space.sm }}>
+          <SectionHead label="THE GATE" right={`${receipts.length} THIS WEEK`} />
+          <T variant="small">
+            The photo that opened the session, and what the checker made of it.
+          </T>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: space.sm }}
+          >
+            {receipts.map(({ gate, file }) => (
+              <View key={gate.day} style={{ width: 92, gap: space.xs }}>
+                <Image
+                  source={{ uri: file!.uri }}
+                  style={{ width: 92, height: 122, backgroundColor: color.paperDeep }}
+                  resizeMode="cover"
+                />
+                <T variant="chapter">{shortDay(gate.day)}</T>
+                <T variant="micro">{gradeWord(gate.grade)}</T>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {receipts.length ? <Rule strong /> : null}
 
       <View style={{ gap: space.sm }}>
         <SectionHead label="THE ONE CHANGE" right="ONE, NEVER THREE" />

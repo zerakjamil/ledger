@@ -42,3 +42,9 @@ yarn-error.*
 
 # emulator proof screenshots
 /shots
+
+# the gate dataset: photographs of a person and their room
+/tools/gate/data/
+/tools/gate/runs/
+/tools/gate/.venv/
+__pycache__/

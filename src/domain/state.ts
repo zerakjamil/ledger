@@ -6,6 +6,7 @@ import {
   type DayEntry,
 } from './consistency';
 import { HOME_KIT } from './equipment';
+import type { GateGrade, GateScores } from './gate';
 import { movementById, needsRack, PROGRAM_SLOT_IDS } from './library';
 import { advance } from './progression';
 import { MOVEMENTS, initialPrescription } from './program';
@@ -26,6 +27,7 @@ export type EventType =
   | 'skip'
   | 'repair.book'
   | 'repair.cancel'
+  | 'gate.pass'
   | 'weigh'
   | 'waist'
   | 'steps'
@@ -86,6 +88,21 @@ export interface RepairRecord {
   minute: number;
 }
 
+/**
+ * Proof that the user stood at the bench before starting. It is not a page and
+ * it is not a session: an abandoned session still leaves the day unpaid. Its
+ * only job is to silence the ladder, because a phone that rings while the bar
+ * is in your hands is punishing the behaviour it asked for.
+ */
+export interface GateRecord {
+  day: string;
+  at: string;
+  grade: GateGrade;
+  /** Filename inside the app's gate folder, kept as the receipt. */
+  photo: string | null;
+  scores: GateScores | null;
+}
+
 export interface AppState {
   contract: Contract | null;
   equipment: Equipment;
@@ -102,6 +119,8 @@ export interface AppState {
   waists: WaistIn[];
   stepDays: string[];
   skips: SkipRecord[];
+  /** Days the gate was passed, one per day. */
+  gates: GateRecord[];
   /** The booked ten minute repair, if one is still live. */
   repair: RepairRecord | null;
   /** Results of the most recent finished session, keyed by movement. */
@@ -132,6 +151,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
   const waists: WaistIn[] = [];
   const stepDays: string[] = [];
   const skips: SkipRecord[] = [];
+  const gates: GateRecord[] = [];
   let repair: RepairRecord | null = null;
   let lastResults: Record<string, SetResult[]> = {};
   let alarms = true;
@@ -230,6 +250,21 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         repair = null;
         break;
       }
+      case 'gate.pass': {
+        const grade = event.payload.grade;
+        /**
+         * Only the three grades the judge can return. A payload from a future
+         * build that invented a fourth one must not silently become evidence.
+         */
+        if (grade !== 'bench' && grade !== 'hand' && grade !== 'unverified') break;
+        const photo = typeof event.payload.photo === 'string' ? event.payload.photo : null;
+        const scores = isScores(event.payload.scores) ? event.payload.scores : null;
+        const record: GateRecord = { day: event.day, at: event.at, grade, photo, scores };
+        const existing = gates.findIndex((gate) => gate.day === event.day);
+        if (existing >= 0) gates[existing] = record;
+        else gates.push(record);
+        break;
+      }
       case 'weigh': {
         const kg = Number(event.payload.kg);
         if (Number.isFinite(kg) && kg > 0) weights.push({ day: event.day, kg });
@@ -290,6 +325,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
     waists,
     stepDays,
     skips,
+    gates,
     repair,
     lastResults,
     alarms,
@@ -311,6 +347,20 @@ export function slotTarget(state: Pick<AppState, 'slots'>, slotId: string): stri
 /** A display prescription, even if a slot was written before the movement existed. */
 export function prescriptionFor(state: AppState, movement: Movement): Prescription {
   return state.prescriptions[movement.id]?.prescription ?? initialPrescription(movement, state.equipment);
+}
+
+export function gateFor(state: Pick<AppState, 'gates'>, day: string): GateRecord | null {
+  return state.gates.find((gate) => gate.day === day) ?? null;
+}
+
+function isScores(value: unknown): value is GateScores {
+  if (!value || typeof value !== 'object') return false;
+  const scores = value as Record<string, unknown>;
+  return (
+    typeof scores.person === 'number' &&
+    typeof scores.dumbbell === 'number' &&
+    typeof scores.bench === 'number'
+  );
 }
 
 function seed(equipment: Equipment): Record<string, PrescriptionState> {
