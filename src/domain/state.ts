@@ -28,6 +28,7 @@ export type EventType =
   | 'repair.book'
   | 'repair.cancel'
   | 'gate.pass'
+  | 'gate.undo'
   | 'weigh'
   | 'waist'
   | 'steps'
@@ -121,6 +122,12 @@ export interface AppState {
   skips: SkipRecord[];
   /** Days the gate was passed, one per day. */
   gates: GateRecord[];
+  /**
+   * Days whose pass was taken back. Not the same thing as a day that never had
+   * a gate: this one owes its ladder again, and it owes it from the moment the
+   * undo happened, however far past the anchor that is.
+   */
+  reopened: string[];
   /** The booked ten minute repair, if one is still live. */
   repair: RepairRecord | null;
   /** Results of the most recent finished session, keyed by movement. */
@@ -152,6 +159,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
   const stepDays: string[] = [];
   const skips: SkipRecord[] = [];
   const gates: GateRecord[] = [];
+  const reopened: string[] = [];
   let repair: RepairRecord | null = null;
   let lastResults: Record<string, SetResult[]> = {};
   let alarms = true;
@@ -265,6 +273,13 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
         else gates.push(record);
         break;
       }
+      case 'gate.undo': {
+        const at = gates.findIndex((gate) => gate.day === event.day);
+        if (at < 0) break;
+        gates.splice(at, 1);
+        if (!reopened.includes(event.day)) reopened.push(event.day);
+        break;
+      }
       case 'weigh': {
         const kg = Number(event.payload.kg);
         if (Number.isFinite(kg) && kg > 0) weights.push({ day: event.day, kg });
@@ -326,6 +341,7 @@ export function reduceEvents(events: readonly AppEvent[], today = todayKey()): A
     stepDays,
     skips,
     gates,
+    reopened,
     repair,
     lastResults,
     alarms,

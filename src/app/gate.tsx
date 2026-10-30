@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Linking, StyleSheet, View } from 'react-native';
 import { todayKey } from '../domain/consistency';
 import { gradeLabel, scoreLine, unavailable, type GateVerdict } from '../domain/gate';
 import { gateFor } from '../domain/state';
@@ -11,7 +11,7 @@ import { useStore } from '../state/provider';
 import { color, mono, rule, space } from '../theme/tokens';
 import { Masthead, PrimaryButton, QuietButton, Rule, Screen, Stamp, T } from '../ui/kit';
 
-type Phase = 'aim' | 'checking' | 'open' | 'shut' | 'blind' | 'naked';
+type Phase = 'aim' | 'checking' | 'open' | 'shut' | 'blind' | 'naked' | 'undoing' | 'undone';
 
 /**
  * The gate.
@@ -40,13 +40,10 @@ export default function Gate() {
   const [slow, setSlow] = useState(false);
   const [armed, setArmed] = useState(false);
   /**
-   * A 3:4 preview on a tall phone pushes the shutter under the fold, and asking
-   * someone to scroll for the button at 7pm is how a gate loses. The frame takes
-   * the smaller of its natural height and 42% of the window, so the button sits
-   * on screen on every size Android ships.
+   * The aim page does not scroll and the preview takes the slack, so the shutter
+   * sits above the bottom edge on every height Android ships. A button that
+   * needs a scroll at 7pm is a gate that lets the evening through.
    */
-  const window = useWindowDimensions();
-  const frameHeight = Math.min((window.width - space.lg * 2) * (4 / 3), window.height * 0.42);
 
   const today = todayKey();
   const already = ready ? gateFor(state, today) : null;
@@ -122,6 +119,43 @@ export default function Gate() {
     setPhase('aim');
   };
 
+  /**
+   * The camera is not on screen for either of these. Undo used to drop the user
+   * straight back onto a live shutter, and the release of the confirming tap
+   * landed on it: a photo of the ceiling one second after asking to take the
+   * pass back. Nothing to press until the screen is asked to show a camera.
+   */
+  if (phase === 'undoing') {
+    return (
+      <Screen>
+        <Masthead title="The gate" back={() => router.back()} />
+        <T variant="title" style={styles.headline}>
+          Taking the pass back
+        </T>
+        <T variant="body" style={styles.prose}>
+          Deleting the photo and starting today's alarms again.
+        </T>
+      </Screen>
+    );
+  }
+
+  if (phase === 'undone') {
+    return (
+      <Screen>
+        <Masthead title="The gate" back={() => router.back()} />
+        <T variant="title" style={styles.headline}>
+          Taken back
+        </T>
+        <T variant="body" style={styles.prose}>
+          Today's record and its photo are gone, and the alarms start again from now. Sit down with
+          the dumbbell, then open the gate.
+        </T>
+        <PrimaryButton label="Open the gate" onPress={again} />
+        <QuietButton label="Back to the page" onPress={() => router.back()} />
+      </Screen>
+    );
+  }
+
   if (already) {
     return (
       <Screen>
@@ -141,6 +175,37 @@ export default function Gate() {
           ) : null}
         </View>
         <PrimaryButton label="Start session" onPress={() => router.replace(next)} />
+        <QuietButton
+          label="Undo this pass"
+          tone="rust"
+          onPress={() =>
+            Alert.alert(
+              'Undo this pass?',
+              "Today's record and its photo are deleted, and today's alarms start again from now. There is no second undo, so this is only worth doing on a pass that was not earned.",
+              [
+                { text: 'Keep the pass', style: 'cancel' },
+                {
+                  text: 'Undo it',
+                  style: 'destructive',
+                  onPress: () => {
+                    /** The camera goes away before the write starts, not after it. */
+                    setPhase('undoing');
+                    void actions
+                      .undoGate()
+                      .then(() => setPhase('undone'))
+                      .catch(() => {
+                        setPhase('aim');
+                        Alert.alert(
+                          'The pass is still open',
+                          'The record could not be taken back. Nothing was deleted. Try again.',
+                        );
+                      });
+                  },
+                },
+              ],
+            )
+          }
+        />
         <QuietButton label="Back to the page" onPress={() => router.back()} />
       </Screen>
     );
@@ -272,16 +337,17 @@ export default function Gate() {
   }
 
   return (
-    <Screen>
+    <Screen scroll={false}>
       <Masthead title="The gate" back={() => router.back()} />
       <T variant="title" style={styles.headline}>
         Show me you are here
       </T>
       <T variant="body" style={styles.prose}>
-        Sit on the bench. Dumbbell in your hand. One photo, then the page opens.
+        Sit on the bench. Dumbbell in your hand.
       </T>
 
-      <View style={[styles.frame, { height: frameHeight }]}>
+      {/* Takes what is left instead of what it asked for: the shutter is the page. */}
+      <View style={[styles.frame, { flex: 1, minHeight: 160 }]}>
         {shot && phase === 'shut' ? (
           <Image source={{ uri: shot }} style={styles.preview} resizeMode="cover" />
         ) : (
@@ -314,17 +380,12 @@ export default function Gate() {
             : slow && !live
               ? 'The camera is taking its time. If it stays black, the button below is honest about it.'
               : live
-                ? 'Hold the dumbbell up beside your face so both are in the frame.'
+                ? detectorInstalled()
+                  ? 'Hold the dumbbell up beside your face so both are in the frame.'
+                  : 'Dumbbell up beside your face. No detector yet: this photo is not checked.'
                 : 'Waiting for the camera.'}
         </T>
       )}
-
-      {!detectorInstalled() && phase === 'aim' ? (
-        <T variant="small" style={styles.hint}>
-          No detector is installed on this phone yet. This photo will not be checked; the next screen
-          will say so before the page opens.
-        </T>
-      ) : null}
 
       {phase === 'shut' ? (
         <PrimaryButton label="Take another" onPress={again} />

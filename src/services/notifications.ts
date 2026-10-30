@@ -116,6 +116,7 @@ export async function syncSchedule(state: AppState): Promise<number> {
       .map((entry) => entry.day),
     /** A gated day is quiet until the morning-after alarm. */
     gateDays: state.gates.map((gate) => gate.day),
+    reopenDays: state.reopened,
     stake: contract.stake,
     since: contract.createdAt.slice(0, 10),
     brief: sessionBrief(state, now),

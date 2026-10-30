@@ -250,6 +250,22 @@ describe('the gate record', () => {
     expect(state.gates[0]!.scores).toBeNull();
   });
 
+  test('undoing a pass takes the record back and reopens the day', () => {
+    const state = reduceEvents([
+      ev('gate.pass', { grade: 'unverified', photo: '2026-10-19.jpg', scores: null }, `${day}T10:38:00.000Z`),
+      ev('gate.undo', {}, `${day}T10:52:00.000Z`),
+    ]);
+    expect(state.gates).toHaveLength(0);
+    expect(gateFor(state, day)).toBeNull();
+    expect(state.reopened).toEqual([day]);
+  });
+
+  test('undoing a day that never passed does not arm anything', () => {
+    const state = reduceEvents([ev('gate.undo', {})]);
+    expect(state.gates).toHaveLength(0);
+    expect(state.reopened).toHaveLength(0);
+  });
+
   test('the day lookup finds the gate and nothing else', () => {
     const state = reduceEvents([ev('gate.pass', { grade: 'hand', photo: null, scores: null })]);
     expect(gateFor(state, '2026-10-19')?.grade).toBe('hand');

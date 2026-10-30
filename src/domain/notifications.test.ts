@@ -384,6 +384,24 @@ describe('the ladder', () => {
     expect(monday.every((spec) => spec.at.getTime() > late.getTime())).toBe(true);
   });
 
+  test('an undone pass rings again even when the anchor is hours gone', () => {
+    const evening = new Date(2026, 9, 26, 21, 30, 0);
+    const early = { ...prefs, anchorHour: 7 };
+    const quiet = planNotifications({ now: evening, prefs: early, horizonDays: 2 }).filter((spec) =>
+      spec.id.startsWith('nag-2026-10-26'),
+    );
+    /** Fourteen hours past the anchor, the normal rule has given up for the day. */
+    expect(quiet).toHaveLength(0);
+    const loud = planNotifications({
+      now: evening,
+      prefs: early,
+      reopenDays: ['2026-10-26'],
+      horizonDays: 2,
+    }).filter((spec) => spec.id.startsWith('nag-2026-10-26'));
+    expect(loud).toHaveLength(5);
+    expect((loud[0]!.at.getTime() - evening.getTime()) / 60_000).toBe(2);
+  });
+
   test('a gate pass cancels the delivered nags, not only the queued ones', () => {
     const ids = [
       'nag-2026-10-26-0',

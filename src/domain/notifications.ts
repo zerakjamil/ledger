@@ -69,6 +69,8 @@ export interface PlanInput {
    * in their hand, so the phone has no business ringing at them while they lift.
    */
   gateDays?: readonly string[];
+  /** Days whose pass was undone. These ring again even if the anchor is hours gone. */
+  reopenDays?: readonly string[];
   /** The price the user wrote for an unexplained skip, verbatim. */
   stake?: string;
   /** The day the contract was signed. Appointments before it cannot be missed. */
@@ -127,6 +129,7 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
     trainedDays = [],
     skipDays = [],
     gateDays = [],
+    reopenDays = [],
     stake,
     since,
     brief = null,
@@ -139,6 +142,7 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
   const written = new Set(writtenDays);
   const trained = new Set(trainedDays);
   const gated = new Set(gateDays);
+  const reopened = new Set(reopenDays);
   /** Cancellation is about evidence, and both a session and a skip are evidence. */
   const closed = new Set([...written, ...trained]);
   const writtenSkips = new Set(skipDays.filter((day) => !trained.has(day))).size;
@@ -207,8 +211,9 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
          */
         const late =
           offset === 0 &&
-          anchor.getTime() <= now.getTime() &&
-          now.getTime() - anchor.getTime() < 6 * 60 * 60_000;
+          (reopened.has(day) ||
+            (anchor.getTime() <= now.getTime() &&
+              now.getTime() - anchor.getTime() < 6 * 60 * 60_000));
         const base = late ? now : anchor;
         if (base.getTime() > now.getTime() - 30_000 || late) {
           const last = NAG_MINUTES[NAG_MINUTES.length - 1]!;

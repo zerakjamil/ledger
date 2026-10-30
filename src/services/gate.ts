@@ -43,6 +43,20 @@ export function receipt(name: string | null): File | null {
 }
 
 /**
+ * Takes the receipt away. The undo is not a label change: a photo left on disk
+ * is a photo the review page can still show, and a pass that was taken back
+ * must not keep its evidence.
+ */
+export async function forget(day: string): Promise<void> {
+  try {
+    const target = new File(new Directory(Paths.document, FOLDER), `${day}.jpg`);
+    if (target.exists) target.delete();
+  } catch {
+    // No receipt, nothing to forget.
+  }
+}
+
+/**
  * The detector.
  *
  * Nothing is bundled yet: the model has to be trained on photographs of this

@@ -13,6 +13,7 @@ import { todayKey } from '../domain/consistency';
 import { reduceEvents, type AppEvent, type AppState, type Contract } from '../domain/state';
 import type { GateGrade, GateScores } from '../domain/gate';
 import type { Equipment, SessionKey, SetResult } from '../domain/types';
+import { forget } from '../services/gate';
 import { ensureNotificationPermission, silenceLadder, syncSchedule } from '../services/notifications';
 import { syncWidget } from '../widget/sync';
 
@@ -45,6 +46,7 @@ interface Actions {
    * that has already started.
    */
   passGate: (grade: GateGrade, photo: string | null, scores: GateScores | null) => Promise<void>;
+  undoGate: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -194,6 +196,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         /** A sticky nag cannot be swiped, so it has to be dismissed as well as cancelled. */
         await silenceLadder(todayKey()).catch(() => 0);
         void syncSchedule(next).catch(() => undefined);
+      },
+      undoGate: async () => {
+        const next = await commit(makeEvent('gate.undo', {}));
+        /** After the commit: an event that failed must not lose the receipt it disproves. */
+        await forget(todayKey());
+        await syncSchedule(next).catch(() => 0);
       },
       setAlarms: async (on) => {
         const next = await commit(makeEvent('setting.set', { alarms: on }));
