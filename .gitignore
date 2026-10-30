@@ -11,6 +11,8 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+.gradle/
+build/
 *.orig.*
 *.jks
 *.p8
@@ -47,6 +49,8 @@ yarn-error.*
 /tools/gate/data/
 /tools/gate/runs/
 /tools/gate/.venv/
+# the trained weights: 13 MB of binary that only an export run should produce
+/assets/gate/*.tflite
 __pycache__/
 
 # gradle/build transcripts from the phone build

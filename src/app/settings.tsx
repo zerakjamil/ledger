@@ -21,6 +21,8 @@ import {
   T,
 } from '../ui/kit';
 import { notificationStatus, pendingCount, testLadder } from '../services/notifications';
+import { detectorInstalled, latestReceipt } from '../services/gate';
+import { infer, reason, visionAvailable } from '../services/vision';
 
 const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 const DAY_INDEX = [1, 2, 3, 4, 5, 6, 0];
@@ -255,6 +257,48 @@ export default function Settings() {
                 : 'Off. The phone stays quiet. The ledger does not.'
             }
             onPress={() => (state.alarms ? stopAlarms() : void setAlarms(true))}
+          />
+        ) : null}
+
+        {visionAvailable() ? (
+          <LinkRow
+            label="Test the detector"
+            detail={
+              detectorInstalled()
+                ? 'Runs the bundled model on a bundled photo and reports what came back.'
+                : 'No model is bundled yet, so this reports the missing file rather than a verdict.'
+            }
+            onPress={() => {
+              void latestReceipt().then((photo) => {
+                if (!photo) {
+                  Alert.alert(
+                    'No gate photo yet',
+                    'This runs the model on the newest photo the gate kept. Pass the gate once, then come back.',
+                  );
+                  return;
+                }
+                return infer('gate/model.tflite', photo, 2).then((result) => {
+                  const shapes = result.outputs.map((output) => output.shape.join('x')).join(' ');
+                  const top = result.outputs
+                    .filter((output) => output.dtype === 'float32')
+                    .map((output) => {
+                      const values = new Float32Array(
+                        new Uint8Array(output.data).buffer.slice(0),
+                      );
+                      let max = 0;
+                      for (const value of values) if (value > max) max = value;
+                      return max.toFixed(2);
+                    })
+                    .join(' ');
+                  Alert.alert(
+                    `${result.ms} ms`,
+                    `In ${result.input.width}x${result.input.height} ${result.input.dtype}\nOut ${shapes}\nTop ${top}`,
+                  );
+                });
+              }).catch((error: Error) => {
+                Alert.alert('The detector did not run', reason(error));
+              });
+            }}
           />
         ) : null}
 

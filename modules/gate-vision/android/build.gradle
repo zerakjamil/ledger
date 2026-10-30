@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.zerakjamil.gatevision'
+version = '0.1.0'
+
+android {
+  namespace "com.zerakjamil.gatevision"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  /**
+   * The runtime, not the task library: the gate needs one interpreter over one
+   * bundled file, and every extra layer between the photo and the tensor is a
+   * layer that can disagree with `tools/gate/probe.py`.
+   */
+  implementation "org.tensorflow:tensorflow-lite:2.17.0"
+}

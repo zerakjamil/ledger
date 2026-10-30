@@ -43,6 +43,25 @@ export function receipt(name: string | null): File | null {
 }
 
 /**
+ * The newest photo the gate kept, for the diagnostic in Settings. It is the
+ * photo the model will actually see, not a stock image: a detector tested on a
+ * picture of a cat is a detector tested on nothing that matters.
+ */
+export async function latestReceipt(): Promise<string | null> {
+  try {
+    const folder = new Directory(Paths.document, FOLDER);
+    if (!folder.exists) return null;
+    const photos = folder
+      .list()
+      .filter((entry): entry is File => entry instanceof File && entry.name.endsWith('.jpg'))
+      .sort((a, b) => b.name.localeCompare(a.name));
+    return photos[0]?.uri ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Takes the receipt away. The undo is not a label change: a photo left on disk
  * is a photo the review page can still show, and a pass that was taken back
  * must not keep its evidence.
