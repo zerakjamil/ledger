@@ -37,7 +37,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
-  "private": true,
+  "license": "MIT",
   "overrides": {
     "react-dom": "19.3.0"
   }
