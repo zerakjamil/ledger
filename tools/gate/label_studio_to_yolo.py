@@ -24,6 +24,7 @@ from pathlib import Path
 # Order matters: these ids are what scoresFromModel reads on the phone.
 CLASSES = ["person", "dumbbell", "bench"]
 CLASS_ID = {name: index for index, name in enumerate(CLASSES)}
+IMAGE_EXT = {".jpg", ".jpeg", ".png"}
 
 
 def load_tasks(path: Path) -> list[dict]:
@@ -33,7 +34,9 @@ def load_tasks(path: Path) -> list[dict]:
     return data
 
 
-def boxes_from_task(task: dict) -> list[tuple[int, float, float, float, float]]:
+def boxes_from_task(
+    task: dict, unknown: set[str]
+) -> list[tuple[int, float, float, float, float]]:
     boxes: list[tuple[int, float, float, float, float]] = []
     for annotation in task.get("annotations", []):
         if annotation.get("was_cancelled"):
@@ -44,6 +47,11 @@ def boxes_from_task(task: dict) -> list[tuple[int, float, float, float, float]]:
             value = result.get("value", {})
             label = next(iter(value.get("rectanglelabels") or []), "")
             if label not in CLASS_ID:
+                # A typo here would otherwise disappear into a dataset that is one
+                # class short, and the only symptom would be a model that never
+                # finds a bench.
+                if label:
+                    unknown.add(label)
                 continue
             width = float(result.get("original_width") or value.get("original_width") or 0)
             height = float(result.get("original_height") or value.get("original_height") or 0)
@@ -79,17 +87,22 @@ def main() -> int:
     empty: list[str] = []
     missing: list[str] = []
     counts = {name: 0 for name in CLASSES}
+    unknown: set[str] = set()
 
     for task in tasks:
         stem = image_stem(task)
         if not stem:
             continue
-        matches = list(args.images.glob(f"{stem}.*"))
+        matches = [
+            path
+            for path in args.images.glob(f"{stem}.*")
+            if path.suffix.lower() in IMAGE_EXT
+        ]
         if not matches:
             missing.append(stem)
             continue
         image = matches[0]
-        boxes = boxes_from_task(task)
+        boxes = boxes_from_task(task, unknown)
         if not boxes:
             empty.append(image.name)
             continue
@@ -112,6 +125,10 @@ def main() -> int:
         print(f"\nno boxes in {len(empty)} image(s). These are negatives if the"
               " frame really has no person, dumbbell or bench:")
         for name in empty[:12]:
+            print(f"  {name}")
+    if unknown:
+        print(f"\n{len(unknown)} label(s) are not in {CLASSES} and were dropped:")
+        for name in sorted(unknown):
             print(f"  {name}")
     if missing:
         print(f"\n{len(missing)} task(s) have no image in {args.images}:")

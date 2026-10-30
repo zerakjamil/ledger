@@ -48,3 +48,6 @@ yarn-error.*
 /tools/gate/runs/
 /tools/gate/.venv/
 __pycache__/
+
+# gradle/build transcripts from the phone build
+.build*.log

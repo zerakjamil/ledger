@@ -66,3 +66,12 @@ export async function read(_uri: string): Promise<GateVerdict> {
 async function scoresFromModel(_uri: string): Promise<GateScores | null> {
   return null;
 }
+
+/**
+ * The screen asks this before the photo, not after. A gate that only admits it
+ * was blind once you have already taken the picture is a gate that let you
+ * believe it was watching.
+ */
+export function detectorInstalled(): boolean {
+  return false;
+}

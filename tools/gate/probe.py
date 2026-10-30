@@ -74,22 +74,34 @@ def decode(output: np.ndarray, min_score: float, iou: float) -> list[tuple[str, 
     class_ids = scores.argmax(axis=1)
     confidence = scores.max(axis=1)
 
+    # The head speaks centre and size; NMS speaks corners. Converting once here
+    # keeps overlap() from reading a width as an x2, which silently disables
+    # suppression and lets one dumbbell come back as four.
+    corners = np.empty_like(boxes)
+    corners[:, 0] = boxes[:, 0] - boxes[:, 2] / 2
+    corners[:, 1] = boxes[:, 1] - boxes[:, 3] / 2
+    corners[:, 2] = boxes[:, 0] + boxes[:, 2] / 2
+    corners[:, 3] = boxes[:, 1] + boxes[:, 3] / 2
+
     keep: list[int] = []
     order = np.argsort(-confidence)
     for index in order:
         if confidence[index] < min_score:
             break
-        if all(overlap(boxes[index], boxes[other]) < iou for other in keep):
+        if all(
+            overlap(corners[index], corners[other]) < iou or class_ids[index] != class_ids[other]
+            for other in keep
+        ):
             keep.append(int(index))
 
     rows = []
     for index in keep[:10]:
-        cx, cy, width, height = boxes[index]
+        x1, y1, x2, y2 = corners[index]
         rows.append(
             (
                 CLASSES[int(class_ids[index])] if int(class_ids[index]) < len(CLASSES) else "?",
                 float(confidence[index]),
-                (float(cx - width / 2), float(cy - height / 2), float(cx + width / 2), float(cy + height / 2)),
+                (float(x1), float(y1), float(x2), float(y2)),
             )
         )
     return rows

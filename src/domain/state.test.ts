@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { MOVEMENTS } from './program';
-import { reduceEvents, waistTrend, weightTrend } from './state';
+import { gateFor, reduceEvents, waistTrend, weightTrend } from './state';
 import type { AppEvent } from './state';
 import type { SetResult } from './types';
 
@@ -211,5 +211,48 @@ describe('the weekly target', () => {
       },
     ]);
     expect(state.consistency.weekTarget).toBe(2);
+  });
+});
+
+describe('the gate record', () => {
+  test('a pass is written as its own evidence, not as a page', () => {
+    const state = reduceEvents([
+      ev('gate.pass', { grade: 'bench', photo: '2026-10-19.jpg', scores: { person: 0.9, dumbbell: 0.8, bench: 0.7 } }),
+    ]);
+    expect(state.gates).toHaveLength(1);
+    expect(state.gates[0]!.grade).toBe('bench');
+    expect(state.gates[0]!.photo).toBe('2026-10-19.jpg');
+    /** The page is not paid. An abandoned session still owes its 08:00 answer. */
+    expect(state.entries).toHaveLength(0);
+    expect(state.records).toHaveLength(0);
+  });
+
+  test('a second pass on the same day replaces the first instead of stacking', () => {
+    const state = reduceEvents([
+      ev('gate.pass', { grade: 'hand', photo: 'a.jpg', scores: null }),
+      ev('gate.pass', { grade: 'bench', photo: 'b.jpg', scores: null }),
+    ]);
+    expect(state.gates).toHaveLength(1);
+    expect(state.gates[0]!.grade).toBe('bench');
+    expect(state.gates[0]!.photo).toBe('b.jpg');
+  });
+
+  test('a grade the judge cannot return is not evidence', () => {
+    const state = reduceEvents([ev('gate.pass', { grade: 'vibes', photo: null, scores: null })]);
+    expect(state.gates).toHaveLength(0);
+  });
+
+  test('scores that are not three numbers are dropped, and the pass survives', () => {
+    const state = reduceEvents([
+      ev('gate.pass', { grade: 'hand', photo: 'a.jpg', scores: { person: 'high' } }),
+    ]);
+    expect(state.gates).toHaveLength(1);
+    expect(state.gates[0]!.scores).toBeNull();
+  });
+
+  test('the day lookup finds the gate and nothing else', () => {
+    const state = reduceEvents([ev('gate.pass', { grade: 'hand', photo: null, scores: null })]);
+    expect(gateFor(state, '2026-10-19')?.grade).toBe('hand');
+    expect(gateFor(state, '2026-10-20')).toBeNull();
   });
 });

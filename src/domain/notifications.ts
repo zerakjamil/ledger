@@ -110,7 +110,8 @@ export const NAG_COPY: readonly [string, string][] = [
   ['This is the deciding part', 'Photo at the bench, or spend the token. Both are answers.'],
   ['The page is still blank', 'The blank page is the only thing being counted.'],
   ['The token is the other door', 'One tap spends it, and the week gets shorter by one.'],
-  ['Last call', 'Two minutes at the bench, or today is written as it stands.'],
+  /** {closes} is filled with the minute the ladder gives up. A deadline with a time on it. */
+  ['Last call', 'The gate closes at {closes}. Two minutes at the bench, or today is written as it stands.'],
 ];
 
 /**
@@ -210,10 +211,13 @@ export function planNotifications(input: PlanInput): NotificationSpec[] {
           now.getTime() - anchor.getTime() < 6 * 60 * 60_000;
         const base = late ? now : anchor;
         if (base.getTime() > now.getTime() - 30_000 || late) {
+          const last = NAG_MINUTES[NAG_MINUTES.length - 1]!;
+          const closes = clock(new Date(base.getTime() + last * 60_000));
           NAG_MINUTES.forEach((minutes, index) => {
             const at = new Date(base.getTime() + minutes * 60_000);
             if (at.getTime() <= now.getTime() + 15_000) return;
-            const [title, body] = NAG_COPY[index]!;
+            const [title, copy] = NAG_COPY[index]!;
+            const body = copy.replace('{closes}', closes);
             specs.push({
               id: `nag-${day}-${index}`,
               kind: 'nag',
@@ -334,6 +338,11 @@ export function helpAlarmIds(ids: readonly string[], day: string): string[] {
   const help = new Set([`fallback-${day}`, `repair-${day}`]);
   const nag = `nag-${day}-`;
   return ids.filter((id) => help.has(id) || id.startsWith(nag));
+}
+
+/** 19:20. Not localised through Intl, because the queue is built on a phone that may be offline. */
+export function clock(at: Date): string {
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 }
 
 function dedupe(specs: readonly NotificationSpec[]): NotificationSpec[] {

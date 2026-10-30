@@ -25,7 +25,10 @@ build is for one phone, not for the store.
    side; the app will refuse any weight it cannot build.
 3. Allow notifications when Android asks. If the prompt was dismissed, Settings
    inside the app shows **Open the system settings**.
-4. On Xiaomi, Oppo, Vivo, Samsung and Huawei, open the system app settings and set
+4. Allow the camera the first time a full session starts. It is asked for once,
+   at the gate, and only a full session uses it. The ten minute session never
+   does.
+5. On Xiaomi, Oppo, Vivo, Samsung and Huawei, open the system app settings and set
    **Battery: unrestricted** and allow **Auto-start** where it exists. Android
    otherwise holds exact alarms until the app is next opened, and a reminder that
    arrives when you open the app is not a reminder.
@@ -60,6 +63,12 @@ messaging and draw-over-other-apps. The app cannot phone home because Android
 will not let it open a socket. There is one APK, not two: the build with network
 permissions was discarded rather than kept as a fallback.
 
+`CAMERA` is the one hardware permission and it exists for a single photograph at
+the gate. It is not used for video, it is not used in the background, and the
+microphone is not requested at all: the build sets `recordAudioAndroid: false`.
+The barcode engine is switched off too, because the gate looks at one image and a
+scanner would be a model and a Play Services dependency for nothing.
+
 ## Proving the reminders, one evening
 
 Do this once, before trusting the app with four weeks:
@@ -76,6 +85,10 @@ Do this once, before trusting the app with four weeks:
 | 8 | Train, then check Settings | Today's reminders are gone, the next days are queued |
 | 9 | Let an appointment pass with nothing written | At 08:00 the next morning, "Yesterday went unwritten" arrives, with the price you wrote |
 | 10 | Do a ten minute session before 08:00 | That alarm never arrives; the rest of the queue is untouched |
+| 11 | Settings, **Hear the ladder** | Five alerts arrive ten seconds apart, each stickier and louder than the last |
+| 12 | Tap one of them | The gate opens on the camera, not on the home page |
+| 13 | Photograph yourself at the bench with a dumbbell | The session opens, and the remaining alerts stop. Until a model is installed the page says **Unchecked**, which is honest, not broken |
+| 14 | Let an appointment ring out, then open the app at +3 minutes | The ladder starts again from that moment instead of going quiet |
 
 If step 3 fails, it is almost always battery optimisation, not the app. The
 queue can be inspected at any time in Settings.

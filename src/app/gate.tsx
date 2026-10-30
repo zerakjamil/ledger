@@ -2,16 +2,16 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, View } from 'react-native';
+import { Image, Linking, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { todayKey } from '../domain/consistency';
 import { gradeLabel, scoreLine, unavailable, type GateVerdict } from '../domain/gate';
 import { gateFor } from '../domain/state';
-import { keep, read } from '../services/gate';
+import { detectorInstalled, keep, read } from '../services/gate';
 import { useStore } from '../state/provider';
 import { color, mono, rule, space } from '../theme/tokens';
 import { Masthead, PrimaryButton, QuietButton, Rule, Screen, Stamp, T } from '../ui/kit';
 
-type Phase = 'aim' | 'checking' | 'open' | 'shut' | 'blind';
+type Phase = 'aim' | 'checking' | 'open' | 'shut' | 'blind' | 'naked';
 
 /**
  * The gate.
@@ -38,6 +38,15 @@ export default function Gate() {
   const [verdict, setVerdict] = useState<GateVerdict | null>(null);
   const [live, setLive] = useState(false);
   const [slow, setSlow] = useState(false);
+  const [armed, setArmed] = useState(false);
+  /**
+   * A 3:4 preview on a tall phone pushes the shutter under the fold, and asking
+   * someone to scroll for the button at 7pm is how a gate loses. The frame takes
+   * the smaller of its natural height and 42% of the window, so the button sits
+   * on screen on every size Android ships.
+   */
+  const window = useWindowDimensions();
+  const frameHeight = Math.min((window.width - space.lg * 2) * (4 / 3), window.height * 0.42);
 
   const today = todayKey();
   const already = ready ? gateFor(state, today) : null;
@@ -57,6 +66,23 @@ export default function Gate() {
     return () => clearTimeout(timer);
   }, [live, phase, permission?.granted]);
 
+  /**
+   * The shutter waits a moment after the preview comes alive. Granting the
+   * camera permission is a tap on the same glass, and Android can hand the
+   * release of that tap to the screen underneath: a gate that photographs the
+   * ceiling the instant you allow the camera is not a gate, it is a formality
+   * with a shutter. The delay is short enough to feel like nothing and long
+   * enough that the photo is always a decision.
+   */
+  useEffect(() => {
+    if (!live || phase !== 'aim') {
+      setArmed(false);
+      return;
+    }
+    const timer = setTimeout(() => setArmed(true), 900);
+    return () => clearTimeout(timer);
+  }, [live, phase]);
+
   const open = async (result: Extract<GateVerdict, { pass: true }>, photo: string | null) => {
     const receipt = photo ? await keep(photo, today) : null;
     await actions.passGate(result.grade, receipt, result.scores);
@@ -75,7 +101,14 @@ export default function Gate() {
       setPhase('checking');
       const result = await read(picture.uri);
       setVerdict(result);
-      if (result.pass) await open(result, picture.uri);
+      /**
+       * No detector means the photo proves that a button was pressed. That is
+       * still allowed to open the gate, because the alternative is a phone that
+       * cannot be used until a model exists, but it is never allowed to do it
+       * quietly: the user says "unchecked" out loud, or spends the token.
+       */
+      if (result.pass && result.grade === 'unverified') setPhase('naked');
+      else if (result.pass) await open(result, picture.uri);
       else setPhase('shut');
     } catch {
       setPhase('blind');
@@ -180,6 +213,35 @@ export default function Gate() {
     );
   }
 
+  if (phase === 'naked') {
+    return (
+      <Screen>
+        <Masthead title="The gate" back={() => router.back()} />
+        <T variant="title" style={styles.headline}>
+          Nothing looked at that photo
+        </T>
+        <T variant="body" style={styles.prose}>
+          There is no detector on this phone yet, so the picture proves that you pressed a button. It
+          cannot tell a dumbbell from a door handle. Train unchecked and the page will say so forever,
+          or spend the token and pay for the evening instead.
+        </T>
+        {shot ? <Image source={{ uri: shot }} style={styles.still} resizeMode="cover" /> : null}
+        <PrimaryButton
+          label="Train unchecked"
+          onPress={() => {
+            if (verdict?.pass) void open(verdict, shot);
+          }}
+        />
+        <QuietButton label="Take another" onPress={again} />
+        <QuietButton
+          label="Spend the token instead"
+          tone="rust"
+          onPress={() => router.replace({ pathname: '/skip', params: { tokens: String(state.consistency.tokensLeft) } })}
+        />
+      </Screen>
+    );
+  }
+
   if (phase === 'blind') {
     return (
       <Screen>
@@ -219,7 +281,7 @@ export default function Gate() {
         Sit on the bench. Dumbbell in your hand. One photo, then the page opens.
       </T>
 
-      <View style={styles.frame}>
+      <View style={[styles.frame, { height: frameHeight }]}>
         {shot && phase === 'shut' ? (
           <Image source={{ uri: shot }} style={styles.preview} resizeMode="cover" />
         ) : (
@@ -229,6 +291,9 @@ export default function Gate() {
             facing="front"
             flash="off"
             onCameraReady={() => setLive(true)}
+            // A sensor that refuses to mount is the same answer as a shutter that
+            // will not fire: the room cannot be proven, so say it now.
+            onMountError={() => setPhase('blind')}
           />
         )}
         <View style={styles.corner} pointerEvents="none" />
@@ -254,13 +319,20 @@ export default function Gate() {
         </T>
       )}
 
+      {!detectorInstalled() && phase === 'aim' ? (
+        <T variant="small" style={styles.hint}>
+          No detector is installed on this phone yet. This photo will not be checked; the next screen
+          will say so before the page opens.
+        </T>
+      ) : null}
+
       {phase === 'shut' ? (
         <PrimaryButton label="Take another" onPress={again} />
       ) : (
         <PrimaryButton
           label={phase === 'checking' ? 'Reading' : 'Take the photo'}
           onPress={() => void shoot()}
-          disabled={!live || phase !== 'aim'}
+          disabled={!live || !armed || phase !== 'aim'}
         />
       )}
       {slow && !live ? <QuietButton label="The camera will not open" onPress={() => setPhase('blind')} /> : null}
@@ -289,7 +361,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.ink,
     overflow: 'hidden',
   },
-  preview: { width: '100%', aspectRatio: 3 / 4 },
+  preview: { flex: 1 },
   corner: {
     position: 'absolute',
     left: '18%',

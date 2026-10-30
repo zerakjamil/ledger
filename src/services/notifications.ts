@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import {
+  clock,
   helpAlarmIds,
   NAG_COPY,
   NAG_MINUTES,
@@ -181,9 +182,13 @@ export async function testLadder(): Promise<number> {
   if (!granted) return 0;
   const day = todayKey();
   const now = Date.now();
+  // The test fires the same copy as the real ladder, so the deadline has to be
+  // filled here too, or the fifth alert reads "{closes}" out loud.
+  const closes = clock(new Date(now + NAG_MINUTES[NAG_MINUTES.length - 1]! * 60_000));
   let queued = 0;
   for (let index = 0; index < NAG_MINUTES.length; index += 1) {
-    const [title, body] = NAG_COPY[index]!;
+    const [title, copy] = NAG_COPY[index]!;
+    const body = copy.replace('{closes}', closes);
     try {
       await Notifications.scheduleNotificationAsync({
         identifier: `nag-${day}-test-${index}`,
@@ -211,6 +216,11 @@ export async function testLadder(): Promise<number> {
   return queued;
 }
 
+/** The ladder is five fixed slots per day, so its ids can be named without asking the shade. */
+function ladderIds(day: string): string[] {
+  return NAG_MINUTES.map((_minutes, index) => `nag-${day}-${index}`);
+}
+
 /**
  * A sticky notification cannot be swiped, so cancelling the scheduled queue is
  * not enough once one has already landed: it would sit in the shade forever,
@@ -227,14 +237,14 @@ export async function silenceLadder(day = todayKey()): Promise<number> {
     await Notifications.cancelScheduledNotificationAsync(identifier);
   }
   const presented = await Notifications.getPresentedNotificationsAsync();
-  let dismissed = 0;
-  for (const notification of presented) {
-    const identifier = notification.request.identifier;
-    if (!identifier.startsWith(`nag-${day}-`)) continue;
-    await Notifications.dismissNotificationAsync(identifier);
-    dismissed += 1;
+  const live = presented.filter((notification) =>
+    notification.request.identifier.startsWith(`nag-${day}-`),
+  ).length;
+  /** Same reasoning as the test alerts: dismiss the five known ids, never the seen ones. */
+  for (const identifier of ladderIds(day)) {
+    await Notifications.dismissNotificationAsync(identifier).catch(() => undefined);
   }
-  return scheduled.length + dismissed;
+  return scheduled.length + live;
 }
 
 /**

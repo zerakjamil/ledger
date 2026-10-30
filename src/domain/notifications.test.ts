@@ -355,6 +355,13 @@ describe('the ladder', () => {
     expect((last.at.getTime() - anchor.at.getTime()) / 60_000).toBe(20);
   });
 
+  test('the last rung names the minute the gate closes', () => {
+    const specs = planNotifications({ now: sundayMorning, prefs, horizonDays: 3 });
+    const last = specs.find((spec) => spec.id === 'nag-2026-10-26-4')!;
+    expect(last.body).toContain('19:20');
+    expect(last.body).not.toContain('{closes}');
+  });
+
   test('a gated day is silent, but the page it did not write still gets a morning alarm', () => {
     const specs = planNotifications({
       now: sundayMorning,
